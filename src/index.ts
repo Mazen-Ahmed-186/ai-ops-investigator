@@ -1,9 +1,11 @@
-import { runBaselineInvestigation } from "./ai/run-baseline.js";
+import { runStructuredInvestigation } from "./ai/run-structured-investigation.js";
 
 async function main() {
-  const result = await runBaselineInvestigation();
+  const assessment = await runStructuredInvestigation("ORD-1001");
 
-  console.log(result);
+  console.dir(assessment, {
+    depth: null,
+  });
 }
 
 main().catch((error) => {
