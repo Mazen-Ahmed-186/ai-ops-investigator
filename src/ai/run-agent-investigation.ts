@@ -18,6 +18,15 @@ type InvestigationRunResult =
   | {
       status: "TOOL_BUDGET_EXHAUSTED";
       toolCalls: number;
+    }
+  | {
+      status: "TIME_BUDGET_EXHAUSTED";
+      toolCalls: number;
+    }
+  | {
+      status: "REPEATED_TOOL_CALL";
+      toolCalls: number;
+      tool: string;
     };
 
 type InvestigationStepInput = {
@@ -26,7 +35,10 @@ type InvestigationStepInput = {
   previousResponseId: string | null;
 };
 
-const MAX_TOOL_CALLS = 4;
+const investigationLimits = {
+  maxToolCalls: 4,
+  maxDurationMs: 30_000,
+} as const;
 
 async function requestInvestigationStep({
   instructions,
@@ -68,12 +80,23 @@ export async function runAgentInvestigation(
     "If available evidence remains insufficient, return UNKNOWN and require more evidence.",
   ].join(" ");
 
+  const startedAt = Date.now();
+
   let previousResponseId: string | null = null;
   let input: string | ResponseInput = `Why is order ${orderId} stuck?`;
 
   let toolCalls = 0;
 
+  const executedToolCalls = new Set<string>();
+
   while (true) {
+    if (Date.now() - startedAt >= investigationLimits.maxDurationMs) {
+      return {
+        status: "TIME_BUDGET_EXHAUSTED",
+        toolCalls,
+      };
+    }
+
     const response = await requestInvestigationStep({
       instructions,
       input,
@@ -102,12 +125,27 @@ export async function runAgentInvestigation(
       };
     }
 
-    if (toolCalls >= MAX_TOOL_CALLS) {
+    if (toolCalls >= investigationLimits.maxToolCalls) {
       return {
         status: "TOOL_BUDGET_EXHAUSTED",
         toolCalls,
       };
     }
+
+    const toolCallSignature = JSON.stringify({
+      name: toolCall.name,
+      arguments: toolCall.parsed_arguments,
+    });
+
+    if (executedToolCalls.has(toolCallSignature)) {
+      return {
+        status: "REPEATED_TOOL_CALL",
+        toolCalls,
+        tool: toolCall.name,
+      };
+    }
+
+    executedToolCalls.add(toolCallSignature);
 
     toolCalls += 1;
 
