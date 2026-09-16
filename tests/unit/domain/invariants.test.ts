@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { evaluateOrderInvariants } from "../../src/domain/invariants.js";
+import { evaluateOrderInvariants } from "../../../src/domain/invariants.js";
 
 describe("evaluateOrderInvariants", () => {
   it("detects an order that remains processing after successful delivery", () => {

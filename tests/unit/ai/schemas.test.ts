@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { IncidentAssessmentSchema } from "../../src/ai/schemas.js";
+import { IncidentAssessmentSchema } from "../../../src/ai/schemas.js";
 
 describe("IncidentAssessmentSchema", () => {
   it("accepts a valid incident assessment", () => {
