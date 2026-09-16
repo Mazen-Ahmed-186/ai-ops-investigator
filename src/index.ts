@@ -1,13 +1,12 @@
-import {
-  getNotificationsByOrderId,
-  getOrderById,
-} from "./domain/repository.js";
-import { evaluateOrderInvariants } from "./domain/invariants.js";
+import { runBaselineInvestigation } from "./ai/run-baseline.js";
 
-const orderId = "ORD-1001";
+async function main() {
+  const result = await runBaselineInvestigation();
 
-console.log({
-  order: getOrderById(orderId),
-  notifications: getNotificationsByOrderId(orderId),
-  findings: evaluateOrderInvariants(orderId),
+  console.log(result);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
 });
