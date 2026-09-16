@@ -1,10 +1,10 @@
-import { runToolInvestigation } from "./ai/run-tool-investigation.js";
+import { runAgentInvestigation } from "./ai/run-agent-investigation.js";
 
 async function main() {
-  const assessment = await runToolInvestigation("ORD-1001");
+  const result = await runAgentInvestigation("ORD-1001");
 
-  console.log("Final assessment:");
-  console.dir(assessment, {
+  console.log("Investigation result:");
+  console.dir(result, {
     depth: null,
   });
 }
