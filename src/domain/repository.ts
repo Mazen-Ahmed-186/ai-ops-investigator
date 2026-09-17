@@ -3,6 +3,7 @@ import {
   entitlements,
   fulfillmentAttempts,
   notifications,
+  orderEvents,
   orders,
   payments,
 } from "./fixtures.js";
@@ -38,4 +39,13 @@ export function getNotificationsByOrderId(orderId: string) {
   return notifications.filter(
     (notification) => notification.orderId === orderId,
   );
+}
+
+export function getOrderEventsByOrderId(orderId: string) {
+  return orderEvents
+    .filter((event) => event.orderId === orderId)
+    .sort(
+      (a, b) =>
+        new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
+    );
 }

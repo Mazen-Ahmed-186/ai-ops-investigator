@@ -36,7 +36,7 @@ type InvestigationStepInput = {
 };
 
 const investigationLimits = {
-  maxToolCalls: 4,
+  maxToolCalls: 7,
   maxDurationMs: 30_000,
 } as const;
 
@@ -77,7 +77,12 @@ export async function runAgentInvestigation(
     "Prefer gathering relevant evidence before reaching a diagnosis.",
     "If another available unqueried tool can materially reduce uncertainty, use it.",
     "Do not repeat the same tool call with the same arguments unless its prior result explicitly indicates that retrying is appropriate.",
-    "If available evidence remains insufficient, return UNKNOWN and require more evidence.",
+    "Distinguish observed issues from root cause.",
+    "Classify each finding as either ISSUE or EVIDENCE.",
+    "Do not claim that one observed failure caused another unless the evidence establishes that causal relationship.",
+    "A notification failure does not by itself explain an order-state transition failure.",
+    "If available evidence remains insufficient to establish root cause, mark the diagnosis as needing more evidence.",
+    "Use historical evidence when current state shows an inconsistency that current-state tools cannot explain.",
   ].join(" ");
 
   const startedAt = Date.now();

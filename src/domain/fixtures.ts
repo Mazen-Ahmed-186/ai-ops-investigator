@@ -5,6 +5,7 @@ import type {
   Notification,
   Order,
   Payment,
+  OrderEvent,
 } from "./types.js";
 
 export const orders: Order[] = [
@@ -63,5 +64,44 @@ export const notifications: Notification[] = [
     type: "EMAIL",
     status: "FAILED",
     updatedAt: "2026-09-16T09:05:00.000Z",
+  },
+];
+
+export const orderEvents: OrderEvent[] = [
+  {
+    id: "EVT-1001",
+    orderId: "ORD-1001",
+    type: "ORDER_CREATED",
+    occurredAt: "2026-09-16T09:00:00.000Z",
+  },
+  {
+    id: "EVT-1002",
+    orderId: "ORD-1001",
+    type: "PAYMENT_CAPTURED",
+    occurredAt: "2026-09-16T09:01:00.000Z",
+  },
+  {
+    id: "EVT-1003",
+    orderId: "ORD-1001",
+    type: "FULFILLMENT_STARTED",
+    occurredAt: "2026-09-16T09:02:00.000Z",
+  },
+  {
+    id: "EVT-1004",
+    orderId: "ORD-1001",
+    type: "FULFILLMENT_SUCCEEDED",
+    occurredAt: "2026-09-16T09:03:00.000Z",
+  },
+  {
+    id: "EVT-1005",
+    orderId: "ORD-1001",
+    type: "ENTITLEMENT_DELIVERED",
+    occurredAt: "2026-09-16T09:04:00.000Z",
+  },
+  {
+    id: "EVT-1006",
+    orderId: "ORD-1001",
+    type: "NOTIFICATION_FAILED",
+    occurredAt: "2026-09-16T09:05:00.000Z",
   },
 ];

@@ -25,6 +25,23 @@ export type AccountDeliveryStatus = "PENDING" | "DELIVERED" | "FAILED";
 
 export type NotificationStatus = "PENDING" | "SENT" | "FAILED";
 
+export type OrderEventType =
+  | "ORDER_CREATED"
+  | "PAYMENT_CAPTURED"
+  | "FULFILLMENT_STARTED"
+  | "FULFILLMENT_SUCCEEDED"
+  | "ENTITLEMENT_DELIVERED"
+  | "ORDER_FULFILLED"
+  | "NOTIFICATION_SENT"
+  | "NOTIFICATION_FAILED";
+
+export type OrderEvent = {
+  id: string;
+  orderId: string;
+  type: OrderEventType;
+  occurredAt: string;
+};
+
 export type Order = {
   id: string;
   status: OrderStatus;

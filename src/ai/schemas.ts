@@ -1,17 +1,32 @@
 import { z } from "zod";
 
-export const IncidentAssessmentSchema = z.object({
-  category: z.enum([
-    "PAYMENT",
-    "FULFILLMENT",
-    "DELIVERY",
-    "NOTIFICATION",
-    "UNKNOWN",
-  ]),
+const IncidentCategorySchema = z.enum([
+  "PAYMENT",
+  "FULFILLMENT",
+  "DELIVERY",
+  "NOTIFICATION",
+  "ORDER_STATE",
+  "UNKNOWN",
+]);
 
-  confidence: z.enum(["LOW", "MEDIUM", "HIGH"]),
+const ConfidenceSchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
+
+export const IncidentAssessmentSchema = z.object({
+  diagnosisStatus: z.enum(["DIAGNOSIS_READY", "NEEDS_MORE_EVIDENCE"]),
+
+  rootCauseCategory: IncidentCategorySchema,
+
+  confidence: ConfidenceSchema,
 
   summary: z.string(),
+
+  findings: z.array(
+    z.object({
+      category: IncidentCategorySchema,
+      kind: z.enum(["ISSUE", "EVIDENCE"]),
+      summary: z.string(),
+    }),
+  ),
 
   requiresMoreEvidence: z.boolean(),
 });
