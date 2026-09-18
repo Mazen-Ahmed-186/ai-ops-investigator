@@ -11,6 +11,23 @@ describe("buildReconstructedInvestigationInput", () => {
       goal: "Determine why order ORD-1001 is stuck.",
 
       status: "RUNNING",
+      workingMemory: {
+        facts: [
+          {
+            id: "fact-1-order-status",
+            statement: "Order ORD-1001 status is PROCESSING.",
+            sourceTool: "get_order",
+            sourceSequence: 1,
+          },
+          {
+            id: "fact-2-payment-PAY-1001",
+            statement: "Payment PAY-1001 status is CAPTURED.",
+            sourceTool: "get_payment_state",
+            sourceSequence: 2,
+          },
+        ],
+        unresolvedQuestions: ["Why has the order not completed?"],
+      },
 
       startedAt: "2026-09-18T16:00:00.000Z",
       updatedAt: "2026-09-18T16:01:00.000Z",
@@ -77,5 +94,94 @@ describe("buildReconstructedInvestigationInput", () => {
     expect(context).not.toContain("resp_should_not_be_required");
 
     expect(context).not.toContain("call_123");
+  });
+
+  it("keeps compact facts while limiting raw observations to the most recent two", () => {
+    const state: InvestigationRunState = {
+      id: "RUN-COMPACTION",
+      orderId: "ORD-1001",
+      goal: "Determine why order ORD-1001 is stuck.",
+
+      status: "RUNNING",
+
+      startedAt: "2026-09-18T16:00:00.000Z",
+      updatedAt: "2026-09-18T16:01:00.000Z",
+
+      toolCalls: 3,
+
+      executedToolCallSignatures: [],
+
+      toolExecutions: [
+        {
+          sequence: 1,
+          tool: "get_order",
+          arguments: {
+            orderId: "ORD-1001",
+          },
+          result: {
+            ok: true,
+            data: {
+              rawMarker: "OLD_RAW_ORDER_OBSERVATION",
+            },
+          },
+          executedAt: "2026-09-18T16:00:01.000Z",
+        },
+        {
+          sequence: 2,
+          tool: "get_payment_state",
+          arguments: {
+            orderId: "ORD-1001",
+          },
+          result: {
+            ok: true,
+            data: {
+              rawMarker: "RECENT_PAYMENT_OBSERVATION",
+            },
+          },
+          executedAt: "2026-09-18T16:00:02.000Z",
+        },
+        {
+          sequence: 3,
+          tool: "get_fulfillment_attempts",
+          arguments: {
+            orderId: "ORD-1001",
+          },
+          result: {
+            ok: true,
+            data: {
+              rawMarker: "RECENT_FULFILLMENT_OBSERVATION",
+            },
+          },
+          executedAt: "2026-09-18T16:00:03.000Z",
+        },
+      ],
+
+      workingMemory: {
+        facts: [
+          {
+            id: "fact-1-order-status",
+            statement: "Order ORD-1001 status is PROCESSING.",
+            sourceTool: "get_order",
+            sourceSequence: 1,
+          },
+        ],
+        unresolvedQuestions: [],
+      },
+
+      continuation: null,
+
+      assessment: null,
+      failureReason: null,
+    };
+
+    const context = buildReconstructedInvestigationInput(state);
+
+    expect(context).toContain("Order ORD-1001 status is PROCESSING.");
+
+    expect(context).not.toContain("OLD_RAW_ORDER_OBSERVATION");
+
+    expect(context).toContain("RECENT_PAYMENT_OBSERVATION");
+
+    expect(context).toContain("RECENT_FULFILLMENT_OBSERVATION");
   });
 });

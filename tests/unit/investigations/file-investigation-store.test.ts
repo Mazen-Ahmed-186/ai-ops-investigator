@@ -40,6 +40,17 @@ describe("FileInvestigationStore", () => {
       goal: "Determine why ORD-1001 is stuck.",
 
       status: "RUNNING",
+      workingMemory: {
+        facts: [
+          {
+            id: "fact-1-order-status",
+            statement: "Order ORD-1001 status is PROCESSING.",
+            sourceTool: "get_order",
+            sourceSequence: 1,
+          },
+        ],
+        unresolvedQuestions: [],
+      },
 
       startedAt: "2026-09-18T16:00:00.000Z",
       updatedAt: "2026-09-18T16:00:00.000Z",

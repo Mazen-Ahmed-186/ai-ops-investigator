@@ -34,6 +34,7 @@ export type InvestigationRunState = {
   goal: string;
 
   status: InvestigationRunStatus;
+  workingMemory: InvestigationWorkingMemory;
 
   startedAt: string;
   updatedAt: string;
@@ -49,4 +50,16 @@ export type InvestigationRunState = {
   assessment: IncidentAssessment | null;
 
   failureReason: string | null;
+};
+
+export type InvestigationFact = {
+  id: string;
+  statement: string;
+  sourceTool: string;
+  sourceSequence: number;
+};
+
+export type InvestigationWorkingMemory = {
+  facts: InvestigationFact[];
+  unresolvedQuestions: string[];
 };

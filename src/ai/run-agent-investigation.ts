@@ -14,6 +14,7 @@ import {
   type IncidentAssessment,
 } from "./schemas.js";
 import { buildReconstructedInvestigationInput } from "../investigations/build-model-context.js";
+import { projectWorkingMemory } from "../investigations/project-working-memory.js";
 
 type InvestigationExecutionMode = "NEW" | "RESUME";
 
@@ -289,6 +290,8 @@ async function executeInvestigation(
         executedAt: new Date().toISOString(),
       });
 
+      state.workingMemory = projectWorkingMemory(state);
+
       state.continuation = {
         kind: "TOOL_OUTPUT",
         previousResponseId: response.id,
@@ -346,6 +349,10 @@ export async function runAgentInvestigation(
     goal: `Determine why order ${orderId} is stuck.`,
 
     status: "RUNNING",
+    workingMemory: {
+      facts: [],
+      unresolvedQuestions: [],
+    },
 
     startedAt: now,
     updatedAt: now,
