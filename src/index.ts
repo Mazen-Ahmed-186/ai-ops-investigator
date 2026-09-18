@@ -8,8 +8,6 @@ async function main() {
   console.dir(result, {
     depth: null,
   });
-
-  console.log(`Durable run ID: ${result.runId}`);
 }
 
 main().catch((error) => {

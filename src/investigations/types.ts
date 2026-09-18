@@ -44,7 +44,7 @@ export type InvestigationRunState = {
 
   toolExecutions: InvestigationToolExecution[];
 
-  continuation: InvestigationContinuation;
+  continuation: InvestigationContinuation | null;
 
   assessment: IncidentAssessment | null;
 

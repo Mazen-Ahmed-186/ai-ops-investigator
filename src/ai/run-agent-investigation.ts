@@ -44,15 +44,44 @@ type InvestigationStepInput = {
   previousResponseId: string | null;
 };
 
-type RunAgentInvestigationOptions = {
+type InvestigationExecutionOptions = {
   store?: InvestigationStore;
+  simulateCrashAfterToolCalls?: number;
+};
+
+type RunAgentInvestigationOptions = InvestigationExecutionOptions & {
   runId?: string;
 };
+
+class SimulatedCrashError extends Error {
+  constructor(toolCalls: number) {
+    super(`Simulated process crash after ${toolCalls} tool calls.`);
+
+    this.name = "SimulatedCrashError";
+  }
+}
 
 const investigationLimits = {
   maxToolCalls: 8,
   maxDurationMs: 30_000,
 } as const;
+
+const instructions = [
+  "You are an operations investigator.",
+  "Use only information provided by the user or returned by tools.",
+  "Do not invent application state.",
+  "Use available tools when application state is required.",
+  "Prefer gathering relevant evidence before reaching a diagnosis.",
+  "If another available unqueried tool can materially reduce uncertainty, use it.",
+  "Do not repeat the same tool call with the same arguments unless its prior result explicitly indicates that retrying is appropriate.",
+  "Distinguish observed issues from root cause.",
+  "Do not claim that one observed failure caused another unless the evidence establishes that causal relationship.",
+  "A notification failure does not by itself explain an order-state transition failure.",
+  "Classify each finding as either ISSUE or EVIDENCE.",
+  "Use historical evidence when current state shows an inconsistency that current-state tools cannot explain.",
+  "Use technical execution evidence when business history establishes that an expected transition did not occur but does not explain why.",
+  "If available evidence remains insufficient to establish root cause, mark the diagnosis as needing more evidence.",
+].join(" ");
 
 async function requestInvestigationStep({
   instructions,
@@ -65,6 +94,7 @@ async function requestInvestigationStep({
     input,
     tools: modelTools,
     parallel_tool_calls: false,
+    store: true,
     text: {
       format: zodTextFormat(IncidentAssessmentSchema, "incident_assessment"),
     },
@@ -89,76 +119,47 @@ async function persistState(
   await store.save(state);
 }
 
-export async function runAgentInvestigation(
-  orderId: string,
-  options: RunAgentInvestigationOptions = {},
+async function executeInvestigation(
+  state: InvestigationRunState,
+  store: InvestigationStore,
+  options: InvestigationExecutionOptions,
 ): Promise<InvestigationRunResult> {
-  const store = options.store ?? new FileInvestigationStore();
+  if (!state.continuation) {
+    throw new Error(`Investigation ${state.id} has no continuation state.`);
+  }
 
-  const prompt = `Why is order ${orderId} stuck?`;
-  const now = new Date().toISOString();
+  let previousResponseId: string | null;
+  let input: string | ResponseInput;
 
-  const state: InvestigationRunState = {
-    id: options.runId ?? `RUN-${randomUUID()}`,
+  if (state.continuation.kind === "INITIAL") {
+    previousResponseId = null;
+    input = state.continuation.prompt;
+  } else {
+    previousResponseId = state.continuation.previousResponseId;
 
-    orderId,
+    input = [
+      {
+        type: "function_call_output",
+        call_id: state.continuation.callId,
+        output: state.continuation.output,
+      },
+    ];
+  }
 
-    goal: `Determine why order ${orderId} is stuck.`,
+  const executedToolCalls = new Set(state.executedToolCallSignatures);
 
-    status: "RUNNING",
-
-    startedAt: now,
-    updatedAt: now,
-
-    toolCalls: 0,
-
-    executedToolCallSignatures: [],
-
-    toolExecutions: [],
-
-    continuation: {
-      kind: "INITIAL",
-      prompt,
-    },
-
-    assessment: null,
-
-    failureReason: null,
-  };
-
-  await store.save(state);
-
-  const instructions = [
-    "You are an operations investigator.",
-    "Use only information provided by the user or returned by tools.",
-    "Do not invent application state.",
-    "Use available tools when application state is required.",
-    "Prefer gathering relevant evidence before reaching a diagnosis.",
-    "If another available unqueried tool can materially reduce uncertainty, use it.",
-    "Do not repeat the same tool call with the same arguments unless its prior result explicitly indicates that retrying is appropriate.",
-    "Distinguish observed issues from root cause.",
-    "Do not claim that one observed failure caused another unless the evidence establishes that causal relationship.",
-    "A notification failure does not by itself explain an order-state transition failure.",
-    "Classify each finding as either ISSUE or EVIDENCE.",
-    "Use historical evidence when current state shows an inconsistency that current-state tools cannot explain.",
-    "Use technical execution evidence when business history establishes that an expected transition did not occur but does not explain why.",
-    "If available evidence remains insufficient to establish root cause, mark the diagnosis as needing more evidence.",
-  ].join(" ");
-
-  let previousResponseId: string | null = null;
-  let input: string | ResponseInput = prompt;
-
-  const executedToolCalls = new Set<string>();
+  const executionStartedAt = Date.now();
 
   try {
     while (true) {
       if (
-        Date.now() - new Date(state.startedAt).getTime() >=
+        Date.now() - executionStartedAt >=
         investigationLimits.maxDurationMs
       ) {
         state.status = "TIME_BUDGET_EXHAUSTED";
 
-        state.failureReason = "Investigation exceeded its maximum duration.";
+        state.failureReason =
+          "Investigation exceeded its maximum active execution duration.";
 
         await persistState(store, state);
 
@@ -193,6 +194,7 @@ export async function runAgentInvestigation(
         state.status = "COMPLETED";
         state.assessment = response.output_parsed;
         state.failureReason = null;
+        state.continuation = null;
 
         await persistState(store, state);
 
@@ -278,6 +280,10 @@ export async function runAgentInvestigation(
 
       await persistState(store, state);
 
+      if (options.simulateCrashAfterToolCalls === state.toolCalls) {
+        throw new SimulatedCrashError(state.toolCalls);
+      }
+
       previousResponseId = response.id;
 
       input = [
@@ -289,6 +295,10 @@ export async function runAgentInvestigation(
       ];
     }
   } catch (error) {
+    if (error instanceof SimulatedCrashError) {
+      throw error;
+    }
+
     state.status = "FAILED";
 
     state.failureReason =
@@ -298,4 +308,76 @@ export async function runAgentInvestigation(
 
     throw error;
   }
+}
+
+export async function runAgentInvestigation(
+  orderId: string,
+  options: RunAgentInvestigationOptions = {},
+): Promise<InvestigationRunResult> {
+  const store = options.store ?? new FileInvestigationStore();
+
+  const prompt = `Why is order ${orderId} stuck?`;
+
+  const now = new Date().toISOString();
+
+  const state: InvestigationRunState = {
+    id: options.runId ?? `RUN-${randomUUID()}`,
+
+    orderId,
+
+    goal: `Determine why order ${orderId} is stuck.`,
+
+    status: "RUNNING",
+
+    startedAt: now,
+    updatedAt: now,
+
+    toolCalls: 0,
+
+    executedToolCallSignatures: [],
+
+    toolExecutions: [],
+
+    continuation: {
+      kind: "INITIAL",
+      prompt,
+    },
+
+    assessment: null,
+    failureReason: null,
+  };
+
+  await store.save(state);
+
+  return executeInvestigation(state, store, options);
+}
+
+export async function resumeAgentInvestigation(
+  runId: string,
+  options: InvestigationExecutionOptions = {},
+): Promise<InvestigationRunResult> {
+  const store = options.store ?? new FileInvestigationStore();
+
+  const state = await store.get(runId);
+
+  if (!state) {
+    throw new Error(`Investigation ${runId} was not found.`);
+  }
+
+  if (state.status === "COMPLETED" && state.assessment) {
+    return {
+      status: "COMPLETED",
+      runId: state.id,
+      assessment: state.assessment,
+      toolCalls: state.toolCalls,
+    };
+  }
+
+  if (state.status !== "RUNNING") {
+    throw new Error(
+      `Investigation ${runId} cannot be resumed from status ${state.status}.`,
+    );
+  }
+
+  return executeInvestigation(state, store, options);
 }
