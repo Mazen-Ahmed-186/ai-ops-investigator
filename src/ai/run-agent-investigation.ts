@@ -13,6 +13,9 @@ import {
   IncidentAssessmentSchema,
   type IncidentAssessment,
 } from "./schemas.js";
+import { buildReconstructedInvestigationInput } from "../investigations/build-model-context.js";
+
+type InvestigationExecutionMode = "NEW" | "RESUME";
 
 type InvestigationRunResult =
   | {
@@ -123,6 +126,7 @@ async function executeInvestigation(
   state: InvestigationRunState,
   store: InvestigationStore,
   options: InvestigationExecutionOptions,
+  mode: InvestigationExecutionMode,
 ): Promise<InvestigationRunResult> {
   if (!state.continuation) {
     throw new Error(`Investigation ${state.id} has no continuation state.`);
@@ -131,19 +135,33 @@ async function executeInvestigation(
   let previousResponseId: string | null;
   let input: string | ResponseInput;
 
-  if (state.continuation.kind === "INITIAL") {
+  if (mode === "RESUME") {
     previousResponseId = null;
-    input = state.continuation.prompt;
-  } else {
-    previousResponseId = state.continuation.previousResponseId;
 
-    input = [
-      {
-        type: "function_call_output",
-        call_id: state.continuation.callId,
-        output: state.continuation.output,
-      },
-    ];
+    input = buildReconstructedInvestigationInput(state);
+
+    console.log(
+      `Resuming ${state.id} from ${state.toolCalls} persisted tool observations.`,
+    );
+  } else {
+    if (!state.continuation) {
+      throw new Error(`Investigation ${state.id} has no continuation state.`);
+    }
+
+    if (state.continuation.kind === "INITIAL") {
+      previousResponseId = null;
+      input = state.continuation.prompt;
+    } else {
+      previousResponseId = state.continuation.previousResponseId;
+
+      input = [
+        {
+          type: "function_call_output",
+          call_id: state.continuation.callId,
+          output: state.continuation.output,
+        },
+      ];
+    }
   }
 
   const executedToolCalls = new Set(state.executedToolCallSignatures);
@@ -349,7 +367,7 @@ export async function runAgentInvestigation(
 
   await store.save(state);
 
-  return executeInvestigation(state, store, options);
+  return executeInvestigation(state, store, options, "NEW");
 }
 
 export async function resumeAgentInvestigation(
@@ -379,5 +397,5 @@ export async function resumeAgentInvestigation(
     );
   }
 
-  return executeInvestigation(state, store, options);
+  return executeInvestigation(state, store, options, "RESUME");
 }

@@ -1,9 +1,7 @@
-import { runAgentInvestigation } from "./ai/run-agent-investigation.js";
+import { resumeAgentInvestigation } from "./ai/run-agent-investigation.js";
 
 async function main() {
-  const result = await runAgentInvestigation("ORD-1001");
-
-  console.log("Investigation result:");
+  const result = await resumeAgentInvestigation("RUN-RESUME-DEMO");
 
   console.dir(result, {
     depth: null,
