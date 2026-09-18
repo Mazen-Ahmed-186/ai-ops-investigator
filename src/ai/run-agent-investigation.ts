@@ -36,7 +36,7 @@ type InvestigationStepInput = {
 };
 
 const investigationLimits = {
-  maxToolCalls: 7,
+  maxToolCalls: 8,
   maxDurationMs: 30_000,
 } as const;
 
@@ -83,6 +83,9 @@ export async function runAgentInvestigation(
     "A notification failure does not by itself explain an order-state transition failure.",
     "If available evidence remains insufficient to establish root cause, mark the diagnosis as needing more evidence.",
     "Use historical evidence when current state shows an inconsistency that current-state tools cannot explain.",
+    "Classify each finding as either ISSUE or EVIDENCE.",
+    "Use historical evidence when current state shows an inconsistency that current-state tools cannot explain.",
+    "Use technical execution evidence when business history establishes that an expected transition did not occur but does not explain why.",
   ].join(" ");
 
   const startedAt = Date.now();

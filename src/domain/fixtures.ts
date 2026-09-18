@@ -6,6 +6,7 @@ import type {
   Order,
   Payment,
   OrderEvent,
+  OrderProcessingTraceEntry,
 } from "./types.js";
 
 export const orders: Order[] = [
@@ -103,5 +104,42 @@ export const orderEvents: OrderEvent[] = [
     orderId: "ORD-1001",
     type: "NOTIFICATION_FAILED",
     occurredAt: "2026-09-16T09:05:00.000Z",
+  },
+];
+
+export const orderProcessingTraces: OrderProcessingTraceEntry[] = [
+  {
+    id: "TRACE-1001",
+    orderId: "ORD-1001",
+    component: "order-completion-handler",
+    event: "ORDER_COMPLETION_HANDLER_STARTED",
+    occurredAt: "2026-09-16T09:04:01.000Z",
+    detail: "Order completion processing started after entitlement delivery.",
+  },
+  {
+    id: "TRACE-1002",
+    orderId: "ORD-1001",
+    component: "order-completion-handler",
+    event: "ORDER_STATUS_UPDATE_ATTEMPTED",
+    occurredAt: "2026-09-16T09:04:01.200Z",
+    detail: "Attempted to transition order from PROCESSING to FULFILLED.",
+  },
+  {
+    id: "TRACE-1003",
+    orderId: "ORD-1001",
+    component: "persistence",
+    event: "DATABASE_TIMEOUT",
+    occurredAt: "2026-09-16T09:04:02.000Z",
+    detail:
+      "Database operation timed out before the order status update was persisted.",
+  },
+  {
+    id: "TRACE-1004",
+    orderId: "ORD-1001",
+    component: "order-completion-handler",
+    event: "ORDER_COMPLETION_HANDLER_FAILED",
+    occurredAt: "2026-09-16T09:04:02.100Z",
+    detail:
+      "Order completion handler terminated without persisting the FULFILLED transition.",
   },
 ];

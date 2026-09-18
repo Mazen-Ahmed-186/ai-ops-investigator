@@ -28,6 +28,11 @@ import {
   GetPaymentStateArgumentsSchema,
   getPaymentStateTool,
 } from "./get-payment-state.tool.js";
+import {
+  executeGetOrderProcessingTrace,
+  GetOrderProcessingTraceArgumentsSchema,
+  getOrderProcessingTraceTool,
+} from "./get-order-processing-trace.tool.js";
 import type { ToolResult } from "./types.js";
 
 function invalidArguments(toolName: string): ToolResult<never> {
@@ -124,6 +129,20 @@ export const toolRegistry = {
       }
 
       return executeGetOrderEventHistory(parsed.data);
+    },
+  },
+
+  get_order_processing_trace: {
+    definition: getOrderProcessingTraceTool,
+
+    execute(args: unknown): ToolResult<unknown> {
+      const parsed = GetOrderProcessingTraceArgumentsSchema.safeParse(args);
+
+      if (!parsed.success) {
+        return invalidArguments("get_order_processing_trace");
+      }
+
+      return executeGetOrderProcessingTrace(parsed.data);
     },
   },
 } as const;

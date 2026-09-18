@@ -4,6 +4,7 @@ import {
   fulfillmentAttempts,
   notifications,
   orderEvents,
+  orderProcessingTraces,
   orders,
   payments,
 } from "./fixtures.js";
@@ -44,6 +45,15 @@ export function getNotificationsByOrderId(orderId: string) {
 export function getOrderEventsByOrderId(orderId: string) {
   return orderEvents
     .filter((event) => event.orderId === orderId)
+    .sort(
+      (a, b) =>
+        new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
+    );
+}
+
+export function getOrderProcessingTraceByOrderId(orderId: string) {
+  return orderProcessingTraces
+    .filter((entry) => entry.orderId === orderId)
     .sort(
       (a, b) =>
         new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),

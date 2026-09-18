@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const IncidentCategorySchema = z.enum([
+const FindingCategorySchema = z.enum([
   "PAYMENT",
   "FULFILLMENT",
   "DELIVERY",
@@ -9,12 +9,24 @@ const IncidentCategorySchema = z.enum([
   "UNKNOWN",
 ]);
 
+const RootCauseCategorySchema = z.enum([
+  "PAYMENT",
+  "FULFILLMENT",
+  "DELIVERY",
+  "NOTIFICATION",
+  "ORDER_STATE",
+  "APPLICATION",
+  "DEPENDENCY",
+  "INFRASTRUCTURE",
+  "UNKNOWN",
+]);
+
 const ConfidenceSchema = z.enum(["LOW", "MEDIUM", "HIGH"]);
 
 export const IncidentAssessmentSchema = z.object({
   diagnosisStatus: z.enum(["DIAGNOSIS_READY", "NEEDS_MORE_EVIDENCE"]),
 
-  rootCauseCategory: IncidentCategorySchema,
+  rootCauseCategory: RootCauseCategorySchema,
 
   confidence: ConfidenceSchema,
 
@@ -22,7 +34,7 @@ export const IncidentAssessmentSchema = z.object({
 
   findings: z.array(
     z.object({
-      category: IncidentCategorySchema,
+      category: FindingCategorySchema,
       kind: z.enum(["ISSUE", "EVIDENCE"]),
       summary: z.string(),
     }),

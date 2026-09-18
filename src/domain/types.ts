@@ -35,6 +35,21 @@ export type OrderEventType =
   | "NOTIFICATION_SENT"
   | "NOTIFICATION_FAILED";
 
+export type OrderProcessingTraceEvent =
+  | "ORDER_COMPLETION_HANDLER_STARTED"
+  | "ORDER_STATUS_UPDATE_ATTEMPTED"
+  | "DATABASE_TIMEOUT"
+  | "ORDER_COMPLETION_HANDLER_FAILED";
+
+export type OrderProcessingTraceEntry = {
+  id: string;
+  orderId: string;
+  component: string;
+  event: OrderProcessingTraceEvent;
+  occurredAt: string;
+  detail: string;
+};
+
 export type OrderEvent = {
   id: string;
   orderId: string;
