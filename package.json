@@ -8,9 +8,13 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "mcp": "tsx src/mcp/server.ts",
+    "mcp:smoke": "tsx src/mcp/client-smoke.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "dotenv": "^17.4.2",
     "openai": "^7.15.0",
     "zod": "^4.6.5"
