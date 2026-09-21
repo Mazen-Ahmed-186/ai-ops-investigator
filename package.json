@@ -10,7 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "mcp": "tsx src/mcp/server.ts",
-    "mcp:smoke": "tsx src/mcp/client-smoke.ts"
+    "mcp:smoke": "tsx src/mcp/client-smoke.ts",
+    "eval:retrieval": "tsx evals/retrieval/run.ts",
+    "eval:retrieval:semantic": "tsx evals/retrieval/run-semantic.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
