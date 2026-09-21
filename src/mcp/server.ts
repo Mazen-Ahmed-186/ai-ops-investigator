@@ -1,14 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 
-import {
-  executeGetOrder,
-  GetOrderArgumentsSchema,
-} from "../tools/get-order.tool.js";
-import {
-  executeGetOrderEventHistory,
-  GetOrderEventHistoryArgumentsSchema,
-} from "../tools/get-order-event-history.tool.js";
+import { getOrderEventHistoryCapability } from "../tools/get-order-event-history.tool.js";
+import { getOrderCapability } from "../tools/get-order.tool.js";
 import type { ToolResult } from "../tools/types.js";
 
 function toMcpResult(result: ToolResult<unknown>) {
@@ -30,39 +24,37 @@ serveStdio(() => {
   });
 
   server.registerTool(
-    "get_order",
+    getOrderCapability.name,
     {
-      title: "Get Order",
-      description:
-        "Retrieve the current high-level state of exactly one order. Use this to inspect order status before investigating related payment, fulfillment, delivery, or historical evidence.",
-      inputSchema: GetOrderArgumentsSchema,
+      title: getOrderCapability.title,
+      description: getOrderCapability.description,
+      inputSchema: getOrderCapability.inputSchema,
+
       annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
+        readOnlyHint: getOrderCapability.annotations.readOnly,
+        destructiveHint: getOrderCapability.annotations.destructive,
+        idempotentHint: getOrderCapability.annotations.idempotent,
       },
     },
-    async (args) => {
-      return toMcpResult(executeGetOrder(args));
-    },
+
+    async (args) => toMcpResult(getOrderCapability.execute(args)),
   );
 
   server.registerTool(
-    "get_order_event_history",
+    getOrderEventHistoryCapability.name,
     {
-      title: "Get Order Event History",
-      description:
-        "Retrieve chronological business events for exactly one order. Use this when current state is inconsistent and historical evidence is needed to understand how the order reached that state.",
-      inputSchema: GetOrderEventHistoryArgumentsSchema,
+      title: getOrderEventHistoryCapability.title,
+      description: getOrderEventHistoryCapability.description,
+      inputSchema: getOrderEventHistoryCapability.inputSchema,
+
       annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
+        readOnlyHint: getOrderEventHistoryCapability.annotations.readOnly,
+        destructiveHint: getOrderEventHistoryCapability.annotations.destructive,
+        idempotentHint: getOrderEventHistoryCapability.annotations.idempotent,
       },
     },
-    async (args) => {
-      return toMcpResult(executeGetOrderEventHistory(args));
-    },
+
+    async (args) => toMcpResult(getOrderEventHistoryCapability.execute(args)),
   );
 
   return server;
