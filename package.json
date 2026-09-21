@@ -17,7 +17,8 @@
     "eval:investigation": "tsx evals/investigation/run.ts",
     "eval:investigation:repeated": "tsx evals/investigation/run-repeated.ts",
     "eval:investigation:judge": "tsx evals/investigation/run-judge.ts",
-    "eval:investigation:judge:calibration": "tsx evals/investigation/run-judge-calibration.ts"
+    "eval:investigation:judge:calibration": "tsx evals/investigation/run-judge-calibration.ts",
+    "eval:observability": "tsx evals/observability/run.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",

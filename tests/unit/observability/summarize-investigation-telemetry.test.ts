@@ -4,7 +4,7 @@ import type { InvestigationTelemetryEvent } from "../../../src/observability/eve
 import { summarizeInvestigationTelemetry } from "../../../src/observability/summarize-investigation-telemetry.js";
 
 describe("summarizeInvestigationTelemetry", () => {
-  it("summarizes model and tool telemetry", () => {
+  it("summarizes operational investigation metrics", () => {
     const events: InvestigationTelemetryEvent[] = [
       {
         type: "INVESTIGATION_STARTED",
@@ -66,15 +66,41 @@ describe("summarizeInvestigationTelemetry", () => {
       },
     ];
 
-    expect(summarizeInvestigationTelemetry(events)).toEqual({
+    const summary = summarizeInvestigationTelemetry(events);
+
+    expect(summary).toMatchObject({
+      outcome: "COMPLETED",
+
+      totalDurationMs: 3000,
+
       modelSteps: 2,
       toolCalls: 2,
+
       modelDurationMs: 1600,
       toolDurationMs: 30,
+
+      overheadDurationMs: 1370,
+
+      averageModelStepMs: 800,
+      maxModelStepMs: 900,
+
       inputTokens: 1100,
       outputTokens: 150,
       totalTokens: 1250,
+
+      firstInputTokens: 500,
+      lastInputTokens: 600,
+
       failedToolCalls: 1,
+
+      toolCallCounts: {
+        get_order: 1,
+        get_payment_state: 1,
+      },
     });
+
+    expect(summary.modelDurationShare).toBeCloseTo(1600 / 3000);
+
+    expect(summary.inputTokenGrowthRatio).toBeCloseTo(1.2);
   });
 });
