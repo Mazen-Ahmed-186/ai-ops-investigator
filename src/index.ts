@@ -1,5 +1,6 @@
 import { runAgentInvestigation } from "./ai/run-agent-investigation.js";
 import { runRemediationRecommendation } from "./ai/run-remediation-recommendation.js";
+import { runAgenticRemediation } from "./ai/run-agentic-remediation.js";
 
 async function main() {
   const investigation = await runAgentInvestigation("ORD-1001");
@@ -27,6 +28,16 @@ async function main() {
   console.log("Remediation recommendation:");
 
   console.dir(remediation.recommendation, {
+    depth: null,
+  });
+
+  const agenticRemediation = await runAgenticRemediation(
+    investigation.assessment,
+  );
+
+  console.log("Agentic remediation:");
+
+  console.dir(agenticRemediation, {
     depth: null,
   });
 }
