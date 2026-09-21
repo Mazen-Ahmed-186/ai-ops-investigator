@@ -1,9 +1,15 @@
 import { runAgentInvestigation } from "./ai/run-agent-investigation.js";
-import { runRemediationRecommendation } from "./ai/run-remediation-recommendation.js";
 import { runAgenticRemediation } from "./ai/run-agentic-remediation.js";
+import { runRemediationRecommendation } from "./ai/run-remediation-recommendation.js";
+import { InMemoryTelemetrySink } from "./observability/in-memory-telemetry.js";
+import { summarizeInvestigationTelemetry } from "./observability/summarize-investigation-telemetry.js";
 
 async function main() {
-  const investigation = await runAgentInvestigation("ORD-1001");
+  const telemetry = new InMemoryTelemetrySink();
+
+  const investigation = await runAgentInvestigation("ORD-1001", {
+    telemetry,
+  });
 
   console.log("Investigation result:");
 
@@ -11,23 +17,29 @@ async function main() {
     depth: null,
   });
 
+  console.log("Investigation telemetry:");
+
+  console.dir(telemetry.getEvents(), {
+    depth: null,
+  });
+
+  console.log("Investigation telemetry summary:");
+
+  console.dir(summarizeInvestigationTelemetry(telemetry.getEvents()), {
+    depth: null,
+  });
+
   if (investigation.status !== "COMPLETED") {
     return;
   }
 
-  const remediation = await runRemediationRecommendation(
+  const deterministicRemediation = await runRemediationRecommendation(
     investigation.assessment,
   );
 
-  console.log("Retrieved runbooks:");
+  console.log("Deterministic remediation:");
 
-  console.dir(remediation.retrievedRunbooks, {
-    depth: null,
-  });
-
-  console.log("Remediation recommendation:");
-
-  console.dir(remediation.recommendation, {
+  console.dir(deterministicRemediation, {
     depth: null,
   });
 

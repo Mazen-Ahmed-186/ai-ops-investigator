@@ -4,17 +4,23 @@ import { zodTextFormat } from "openai/helpers/zod";
 import type { ResponseInput } from "openai/resources/responses/responses";
 
 import { env } from "../config/env.js";
+import { buildReconstructedInvestigationInput } from "../investigations/build-model-context.js";
 import { FileInvestigationStore } from "../investigations/file-investigation-store.js";
+import { projectWorkingMemory } from "../investigations/project-working-memory.js";
 import type { InvestigationStore } from "../investigations/store.js";
 import type { InvestigationRunState } from "../investigations/types.js";
+import type { TelemetrySink } from "../observability/events.js";
+import {
+  createInvestigationTelemetry,
+  durationSince,
+  occurredAt,
+} from "../observability/investigation-telemetry.js";
 import { executeRegisteredTool, modelTools } from "../tools/registry.js";
 import { openai } from "./client.js";
 import {
   IncidentAssessmentSchema,
   type IncidentAssessment,
 } from "./schemas.js";
-import { buildReconstructedInvestigationInput } from "../investigations/build-model-context.js";
-import { projectWorkingMemory } from "../investigations/project-working-memory.js";
 
 type InvestigationExecutionMode = "NEW" | "RESUME";
 
@@ -51,6 +57,7 @@ type InvestigationStepInput = {
 type InvestigationExecutionOptions = {
   store?: InvestigationStore;
   simulateCrashAfterToolCalls?: number;
+  telemetry?: TelemetrySink;
 };
 
 type RunAgentInvestigationOptions = InvestigationExecutionOptions & {
@@ -133,7 +140,17 @@ async function executeInvestigation(
     throw new Error(`Investigation ${state.id} has no continuation state.`);
   }
 
+  const telemetry = createInvestigationTelemetry(options.telemetry);
+
+  telemetry.sink?.record({
+    type: "INVESTIGATION_STARTED",
+    runId: state.id,
+    orderId: state.orderId,
+    occurredAt: occurredAt(),
+  });
+
   let previousResponseId: string | null;
+
   let input: string | ResponseInput;
 
   if (mode === "RESUME") {
@@ -151,6 +168,7 @@ async function executeInvestigation(
 
     if (state.continuation.kind === "INITIAL") {
       previousResponseId = null;
+
       input = state.continuation.prompt;
     } else {
       previousResponseId = state.continuation.previousResponseId;
@@ -182,6 +200,15 @@ async function executeInvestigation(
 
         await persistState(store, state);
 
+        telemetry.sink?.record({
+          type: "INVESTIGATION_FINISHED",
+          runId: state.id,
+          occurredAt: occurredAt(),
+          durationMs: durationSince(telemetry.startedAtMs),
+          toolCalls: state.toolCalls,
+          status: "TIME_BUDGET_EXHAUSTED",
+        });
+
         return {
           status: "TIME_BUDGET_EXHAUSTED",
           runId: state.id,
@@ -189,10 +216,29 @@ async function executeInvestigation(
         };
       }
 
+      const modelStep = state.toolCalls + 1;
+
+      const modelStartedAt = performance.now();
+
       const response = await requestInvestigationStep({
         instructions,
         input,
         previousResponseId,
+      });
+
+      telemetry.sink?.record({
+        type: "MODEL_STEP_COMPLETED",
+        runId: state.id,
+        occurredAt: occurredAt(),
+        step: modelStep,
+        durationMs: durationSince(modelStartedAt),
+        usage: {
+          inputTokens: response.usage?.input_tokens ?? null,
+
+          outputTokens: response.usage?.output_tokens ?? null,
+
+          totalTokens: response.usage?.total_tokens ?? null,
+        },
       });
 
       if (response.status !== "completed") {
@@ -211,11 +257,23 @@ async function executeInvestigation(
         }
 
         state.status = "COMPLETED";
+
         state.assessment = response.output_parsed;
+
         state.failureReason = null;
+
         state.continuation = null;
 
         await persistState(store, state);
+
+        telemetry.sink?.record({
+          type: "INVESTIGATION_FINISHED",
+          runId: state.id,
+          occurredAt: occurredAt(),
+          durationMs: durationSince(telemetry.startedAtMs),
+          toolCalls: state.toolCalls,
+          status: "COMPLETED",
+        });
 
         return {
           status: "COMPLETED",
@@ -232,6 +290,15 @@ async function executeInvestigation(
           "Investigation exceeded its maximum tool-call budget.";
 
         await persistState(store, state);
+
+        telemetry.sink?.record({
+          type: "INVESTIGATION_FINISHED",
+          runId: state.id,
+          occurredAt: occurredAt(),
+          durationMs: durationSince(telemetry.startedAtMs),
+          toolCalls: state.toolCalls,
+          status: "TOOL_BUDGET_EXHAUSTED",
+        });
 
         return {
           status: "TOOL_BUDGET_EXHAUSTED",
@@ -252,6 +319,15 @@ async function executeInvestigation(
 
         await persistState(store, state);
 
+        telemetry.sink?.record({
+          type: "INVESTIGATION_FINISHED",
+          runId: state.id,
+          occurredAt: occurredAt(),
+          durationMs: durationSince(telemetry.startedAtMs),
+          toolCalls: state.toolCalls,
+          status: "REPEATED_TOOL_CALL",
+        });
+
         return {
           status: "REPEATED_TOOL_CALL",
           runId: state.id,
@@ -269,10 +345,23 @@ async function executeInvestigation(
         arguments: toolCall.parsed_arguments,
       });
 
+      const toolStartedAt = performance.now();
+
       const toolResult = executeRegisteredTool(
         toolCall.name,
         toolCall.parsed_arguments,
       );
+
+      telemetry.sink?.record({
+        type: "TOOL_EXECUTION_COMPLETED",
+        runId: state.id,
+        occurredAt: occurredAt(),
+        step: sequence,
+        toolName: toolCall.name,
+        durationMs: durationSince(toolStartedAt),
+        ok: toolResult.ok,
+        errorCategory: toolResult.ok ? null : toolResult.error.category,
+      });
 
       console.log(`Step ${sequence} — tool result:`, toolResult);
 
@@ -327,6 +416,14 @@ async function executeInvestigation(
 
     await persistState(store, state);
 
+    telemetry.sink?.record({
+      type: "INVESTIGATION_FAILED",
+      runId: state.id,
+      occurredAt: occurredAt(),
+      durationMs: durationSince(telemetry.startedAtMs),
+      reason: state.failureReason,
+    });
+
     throw error;
   }
 }
@@ -349,6 +446,7 @@ export async function runAgentInvestigation(
     goal: `Determine why order ${orderId} is stuck.`,
 
     status: "RUNNING",
+
     workingMemory: {
       facts: [],
       unresolvedQuestions: [],
@@ -369,6 +467,7 @@ export async function runAgentInvestigation(
     },
 
     assessment: null,
+
     failureReason: null,
   };
 
