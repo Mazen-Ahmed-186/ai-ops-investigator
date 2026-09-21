@@ -1,4 +1,3 @@
-import { zodResponsesFunction } from "openai/helpers/zod";
 import { z } from "zod";
 
 import {
@@ -6,6 +5,7 @@ import {
   getOrderById,
 } from "../domain/repository.js";
 import type { Notification } from "../domain/types.js";
+import type { ToolCapability } from "./capability.js";
 import type { ToolResult } from "./types.js";
 
 export const GetNotificationStateArgumentsSchema = z.object({
@@ -23,15 +23,11 @@ export type GetNotificationStateData = {
   source: "commerce_repository";
 };
 
-export const getNotificationStateTool = zodResponsesFunction({
-  name: "get_notification_state",
-  description: [
-    "Retrieve notification state for exactly one existing order.",
-    "Use this to determine whether customer notifications such as email were sent, are pending, or failed.",
-    "Notification state is separate from payment, fulfillment, and account delivery.",
-  ].join(" "),
-  parameters: GetNotificationStateArgumentsSchema,
-});
+export const GET_NOTIFICATION_STATE_DESCRIPTION = [
+  "Retrieve notification state for exactly one existing order.",
+  "Use this to determine whether customer notifications such as email were sent, are pending, or failed.",
+  "Notification state is separate from payment, fulfillment, and account delivery.",
+].join(" ");
 
 export function executeGetNotificationState(
   args: GetNotificationStateArguments,
@@ -60,3 +56,19 @@ export function executeGetNotificationState(
     },
   };
 }
+
+export const getNotificationStateCapability = {
+  name: "get_notification_state",
+  title: "Get Notification State",
+  description: GET_NOTIFICATION_STATE_DESCRIPTION,
+
+  inputSchema: GetNotificationStateArgumentsSchema,
+
+  annotations: {
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+
+  execute: executeGetNotificationState,
+} satisfies ToolCapability<GetNotificationStateArguments>;

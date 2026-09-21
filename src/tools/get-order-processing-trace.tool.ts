@@ -1,4 +1,3 @@
-import { zodResponsesFunction } from "openai/helpers/zod";
 import { z } from "zod";
 
 import {
@@ -6,6 +5,7 @@ import {
   getOrderProcessingTraceByOrderId,
 } from "../domain/repository.js";
 import type { OrderProcessingTraceEntry } from "../domain/types.js";
+import type { ToolCapability } from "./capability.js";
 import type { ToolResult } from "./types.js";
 
 export const GetOrderProcessingTraceArgumentsSchema = z.object({
@@ -23,16 +23,12 @@ export type GetOrderProcessingTraceData = {
   source: "application_trace";
 };
 
-export const getOrderProcessingTraceTool = zodResponsesFunction({
-  name: "get_order_processing_trace",
-  description: [
-    "Retrieve curated technical execution trace entries for exactly one existing order.",
-    "Use this when business state or event history shows an unexplained processing or state-transition failure.",
-    "This can help determine why an expected application transition did not complete.",
-    "It does not expose arbitrary logs, stack traces, SQL, secrets, or infrastructure access.",
-  ].join(" "),
-  parameters: GetOrderProcessingTraceArgumentsSchema,
-});
+export const GET_ORDER_PROCESSING_TRACE_DESCRIPTION = [
+  "Retrieve curated technical execution trace entries for exactly one existing order.",
+  "Use this when business state or event history shows an unexplained processing or state-transition failure.",
+  "This can help determine why an expected application transition did not complete.",
+  "It does not expose arbitrary logs, stack traces, SQL, secrets, or infrastructure access.",
+].join(" ");
 
 export function executeGetOrderProcessingTrace(
   args: GetOrderProcessingTraceArguments,
@@ -61,3 +57,19 @@ export function executeGetOrderProcessingTrace(
     },
   };
 }
+
+export const getOrderProcessingTraceCapability = {
+  name: "get_order_processing_trace",
+  title: "Get Order Processing Trace",
+  description: GET_ORDER_PROCESSING_TRACE_DESCRIPTION,
+
+  inputSchema: GetOrderProcessingTraceArgumentsSchema,
+
+  annotations: {
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+
+  execute: executeGetOrderProcessingTrace,
+} satisfies ToolCapability<GetOrderProcessingTraceArguments>;

@@ -1,8 +1,8 @@
-import { zodResponsesFunction } from "openai/helpers/zod";
 import { z } from "zod";
 
 import { getOrderById, getPaymentsByOrderId } from "../domain/repository.js";
 import type { Payment } from "../domain/types.js";
+import type { ToolCapability } from "./capability.js";
 import type { ToolResult } from "./types.js";
 
 export const GetPaymentStateArgumentsSchema = z.object({
@@ -20,15 +20,11 @@ export type GetPaymentStateData = {
   source: "commerce_repository";
 };
 
-export const getPaymentStateTool = zodResponsesFunction({
-  name: "get_payment_state",
-  description: [
-    "Retrieve payment state for exactly one existing order.",
-    "Use this to determine whether payment is pending, captured, failed, or refunded.",
-    "Does not return fulfillment, entitlement, delivery, or notification state.",
-  ].join(" "),
-  parameters: GetPaymentStateArgumentsSchema,
-});
+export const GET_PAYMENT_STATE_DESCRIPTION = [
+  "Retrieve payment state for exactly one existing order.",
+  "Use this to determine whether payment is pending, captured, failed, or refunded.",
+  "Does not return fulfillment, entitlement, delivery, or notification state.",
+].join(" ");
 
 export function executeGetPaymentState(
   args: GetPaymentStateArguments,
@@ -57,3 +53,19 @@ export function executeGetPaymentState(
     },
   };
 }
+
+export const getPaymentStateCapability = {
+  name: "get_payment_state",
+  title: "Get Payment State",
+  description: GET_PAYMENT_STATE_DESCRIPTION,
+
+  inputSchema: GetPaymentStateArgumentsSchema,
+
+  annotations: {
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+
+  execute: executeGetPaymentState,
+} satisfies ToolCapability<GetPaymentStateArguments>;

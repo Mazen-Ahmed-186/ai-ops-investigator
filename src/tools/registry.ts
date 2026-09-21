@@ -1,150 +1,50 @@
-import {
-  executeGetDeliveryState,
-  GetDeliveryStateArgumentsSchema,
-  getDeliveryStateTool,
-} from "./get-delivery-state.tool.js";
-import {
-  executeGetFulfillmentAttempts,
-  GetFulfillmentAttemptsArgumentsSchema,
-  getFulfillmentAttemptsTool,
-} from "./get-fulfillment-attempts.tool.js";
-import {
-  executeGetNotificationState,
-  GetNotificationStateArgumentsSchema,
-  getNotificationStateTool,
-} from "./get-notification-state.tool.js";
-import {
-  executeGetOrderEventHistory,
-  GetOrderEventHistoryArgumentsSchema,
-  getOrderEventHistoryTool,
-} from "./get-order-event-history.tool.js";
-import {
-  executeGetOrder,
-  GetOrderArgumentsSchema,
-  getOrderTool,
-} from "./get-order.tool.js";
-import {
-  executeGetPaymentState,
-  GetPaymentStateArgumentsSchema,
-  getPaymentStateTool,
-} from "./get-payment-state.tool.js";
-import {
-  executeGetOrderProcessingTrace,
-  GetOrderProcessingTraceArgumentsSchema,
-  getOrderProcessingTraceTool,
-} from "./get-order-processing-trace.tool.js";
+import { getDeliveryStateCapability } from "./get-delivery-state.tool.js";
+import { getFulfillmentAttemptsCapability } from "./get-fulfillment-attempts.tool.js";
+import { getNotificationStateCapability } from "./get-notification-state.tool.js";
+import { getOrderEventHistoryCapability } from "./get-order-event-history.tool.js";
+import { getOrderProcessingTraceCapability } from "./get-order-processing-trace.tool.js";
+import { getOrderCapability } from "./get-order.tool.js";
+import { createOpenAIRegisteredCapability } from "./openai-adapter.js";
+import { getPaymentStateCapability } from "./get-payment-state.tool.js";
 import type { ToolResult } from "./types.js";
 
-function invalidArguments(toolName: string): ToolResult<never> {
-  return {
-    ok: false,
-    error: {
-      code: "TOOL_ARGUMENT_VALIDATION_FAILED",
-      category: "VALIDATION",
-      retryable: false,
-      message: `Arguments for ${toolName} did not match the required schema.`,
-    },
-  };
-}
+const getOrderRegisteredCapability =
+  createOpenAIRegisteredCapability(getOrderCapability);
+
+const getPaymentStateRegisteredCapability = createOpenAIRegisteredCapability(
+  getPaymentStateCapability,
+);
+
+const getFulfillmentAttemptsRegisteredCapability =
+  createOpenAIRegisteredCapability(getFulfillmentAttemptsCapability);
+
+const getDeliveryStateRegisteredCapability = createOpenAIRegisteredCapability(
+  getDeliveryStateCapability,
+);
+
+const getNotificationStateRegisteredCapability =
+  createOpenAIRegisteredCapability(getNotificationStateCapability);
+
+const getOrderEventHistoryRegisteredCapability =
+  createOpenAIRegisteredCapability(getOrderEventHistoryCapability);
+
+const getOrderProcessingTraceRegisteredCapability =
+  createOpenAIRegisteredCapability(getOrderProcessingTraceCapability);
 
 export const toolRegistry = {
-  get_order: {
-    definition: getOrderTool,
+  get_order: getOrderRegisteredCapability,
 
-    execute(args: unknown): ToolResult<unknown> {
-      const parsed = GetOrderArgumentsSchema.safeParse(args);
+  get_payment_state: getPaymentStateRegisteredCapability,
 
-      if (!parsed.success) {
-        return invalidArguments("get_order");
-      }
+  get_fulfillment_attempts: getFulfillmentAttemptsRegisteredCapability,
 
-      return executeGetOrder(parsed.data);
-    },
-  },
+  get_delivery_state: getDeliveryStateRegisteredCapability,
 
-  get_payment_state: {
-    definition: getPaymentStateTool,
+  get_notification_state: getNotificationStateRegisteredCapability,
 
-    execute(args: unknown): ToolResult<unknown> {
-      const parsed = GetPaymentStateArgumentsSchema.safeParse(args);
+  get_order_event_history: getOrderEventHistoryRegisteredCapability,
 
-      if (!parsed.success) {
-        return invalidArguments("get_payment_state");
-      }
-
-      return executeGetPaymentState(parsed.data);
-    },
-  },
-
-  get_fulfillment_attempts: {
-    definition: getFulfillmentAttemptsTool,
-
-    execute(args: unknown): ToolResult<unknown> {
-      const parsed = GetFulfillmentAttemptsArgumentsSchema.safeParse(args);
-
-      if (!parsed.success) {
-        return invalidArguments("get_fulfillment_attempts");
-      }
-
-      return executeGetFulfillmentAttempts(parsed.data);
-    },
-  },
-
-  get_delivery_state: {
-    definition: getDeliveryStateTool,
-
-    execute(args: unknown): ToolResult<unknown> {
-      const parsed = GetDeliveryStateArgumentsSchema.safeParse(args);
-
-      if (!parsed.success) {
-        return invalidArguments("get_delivery_state");
-      }
-
-      return executeGetDeliveryState(parsed.data);
-    },
-  },
-
-  get_notification_state: {
-    definition: getNotificationStateTool,
-
-    execute(args: unknown): ToolResult<unknown> {
-      const parsed = GetNotificationStateArgumentsSchema.safeParse(args);
-
-      if (!parsed.success) {
-        return invalidArguments("get_notification_state");
-      }
-
-      return executeGetNotificationState(parsed.data);
-    },
-  },
-
-  get_order_event_history: {
-    definition: getOrderEventHistoryTool,
-
-    execute(args: unknown): ToolResult<unknown> {
-      const parsed = GetOrderEventHistoryArgumentsSchema.safeParse(args);
-
-      if (!parsed.success) {
-        return invalidArguments("get_order_event_history");
-      }
-
-      return executeGetOrderEventHistory(parsed.data);
-    },
-  },
-
-  get_order_processing_trace: {
-    definition: getOrderProcessingTraceTool,
-
-    execute(args: unknown): ToolResult<unknown> {
-      const parsed = GetOrderProcessingTraceArgumentsSchema.safeParse(args);
-
-      if (!parsed.success) {
-        return invalidArguments("get_order_processing_trace");
-      }
-
-      return executeGetOrderProcessingTrace(parsed.data);
-    },
-  },
+  get_order_processing_trace: getOrderProcessingTraceRegisteredCapability,
 } as const;
 
 export type ToolName = keyof typeof toolRegistry;

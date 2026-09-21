@@ -1,4 +1,3 @@
-import { zodResponsesFunction } from "openai/helpers/zod";
 import { z } from "zod";
 
 import {
@@ -7,6 +6,7 @@ import {
   getOrderById,
 } from "../domain/repository.js";
 import type { AccountDelivery, Entitlement } from "../domain/types.js";
+import type { ToolCapability } from "./capability.js";
 import type { ToolResult } from "./types.js";
 
 export const GetDeliveryStateArgumentsSchema = z.object({
@@ -25,16 +25,12 @@ export type GetDeliveryStateData = {
   source: "commerce_repository";
 };
 
-export const getDeliveryStateTool = zodResponsesFunction({
-  name: "get_delivery_state",
-  description: [
-    "Retrieve the customer delivery state for exactly one existing order.",
-    "Returns entitlement state and authenticated account delivery state.",
-    "Use this to determine whether a fulfilled item became durably available to the customer.",
-    "Does not return payment, provider fulfillment attempt, or notification state.",
-  ].join(" "),
-  parameters: GetDeliveryStateArgumentsSchema,
-});
+export const GET_DELIVERY_STATE_DESCRIPTION = [
+  "Retrieve the customer delivery state for exactly one existing order.",
+  "Returns entitlement state and authenticated account delivery state.",
+  "Use this to determine whether a fulfilled item became durably available to the customer.",
+  "Does not return payment, provider fulfillment attempt, or notification state.",
+].join(" ");
 
 export function executeGetDeliveryState(
   args: GetDeliveryStateArguments,
@@ -64,3 +60,19 @@ export function executeGetDeliveryState(
     },
   };
 }
+
+export const getDeliveryStateCapability = {
+  name: "get_delivery_state",
+  title: "Get Delivery State",
+  description: GET_DELIVERY_STATE_DESCRIPTION,
+
+  inputSchema: GetDeliveryStateArgumentsSchema,
+
+  annotations: {
+    readOnly: true,
+    destructive: false,
+    idempotent: true,
+  },
+
+  execute: executeGetDeliveryState,
+} satisfies ToolCapability<GetDeliveryStateArguments>;
