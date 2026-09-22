@@ -3,20 +3,25 @@ import type { ActionExecutionRepository } from "../actions/action-execution-repo
 import type { ApprovalStore } from "../actions/approval-store.js";
 import { executeAuditedCreateFulfillmentAttempt } from "../actions/execute-audited-create-fulfillment-attempt.js";
 import { executeAuditedReconcileOrderState } from "../actions/execute-audited-reconcile-order-state.js";
+import { executeAuditedRetryNotification } from "../actions/execute-audited-retry-notification.js";
 import type { CreateFulfillmentAttemptAction } from "../actions/execute-create-fulfillment-attempt.js";
 import type { ReconcileOrderStateAction } from "../actions/execute-reconcile-order-state.js";
+import type { RetryNotificationAction } from "../actions/execute-retry-notification.js";
 import type { FulfillmentActionExecutionRepository } from "../actions/fulfillment-action-execution-repository.js";
+import type { NotificationActionExecutionRepository } from "../actions/notification-action-execution-repository.js";
 import type { RemediationStore } from "../remediations/store.js";
 import type { AutomationStore } from "./automation-store.js";
 import { derivePrimaryAction } from "./derive-primary-action.js";
+import { recoverConsumedFulfillmentExecution } from "./recover-consumed-fulfillment-execution.js";
 import { transitionAutomationRun } from "./state-machine.js";
 import type { AutomationRun } from "./types.js";
-import { recoverConsumedFulfillmentExecution } from "./recover-consumed-fulfillment-execution.js";
 
 type AuditedReconcileExecutor = typeof executeAuditedReconcileOrderState;
 
 type AuditedCreateFulfillmentAttemptExecutor =
   typeof executeAuditedCreateFulfillmentAttempt;
+
+type AuditedRetryNotificationExecutor = typeof executeAuditedRetryNotification;
 
 export type AutomationActionExecutionResult =
   | {
@@ -39,6 +44,15 @@ function supportsFulfillmentAttemptCreation(
   return typeof candidate.createFulfillmentAttempt === "function";
 }
 
+function supportsNotificationRetry(
+  repository: ActionExecutionRepository,
+): repository is NotificationActionExecutionRepository {
+  const candidate =
+    repository as Partial<NotificationActionExecutionRepository>;
+
+  return typeof candidate.retryNotification === "function";
+}
+
 export async function executeAutomationAction(args: {
   automationRunId: string;
   automationStore: AutomationStore;
@@ -48,6 +62,7 @@ export async function executeAutomationAction(args: {
   approvalStore?: ApprovalStore;
   executeReconcile?: AuditedReconcileExecutor;
   executeCreateFulfillmentAttempt?: AuditedCreateFulfillmentAttemptExecutor;
+  executeRetryNotification?: AuditedRetryNotificationExecutor;
   now?: () => Date;
 }): Promise<AutomationActionExecutionResult> {
   const now = args.now ?? (() => new Date());
@@ -58,6 +73,9 @@ export async function executeAutomationAction(args: {
   const executeCreateFulfillmentAttempt =
     args.executeCreateFulfillmentAttempt ??
     executeAuditedCreateFulfillmentAttempt;
+
+  const executeRetryNotification =
+    args.executeRetryNotification ?? executeAuditedRetryNotification;
 
   let run = await args.automationStore.get(args.automationRunId);
 
@@ -140,6 +158,74 @@ export async function executeAutomationAction(args: {
       switch (execution.result.status) {
         case "EXECUTED":
         case "NO_OP":
+          run = transitionAutomationRun(run, "VERIFYING", now());
+
+          await args.automationStore.save(run);
+
+          return {
+            status: "VERIFYING",
+
+            run,
+
+            executionId: execution.executionId,
+          };
+
+        case "NOT_FOUND":
+        case "DENIED":
+        case "BLOCKED_BY_CURRENT_STATE":
+          run = transitionAutomationRun(run, "ESCALATED", now());
+
+          await args.automationStore.save(run);
+
+          return {
+            status: "ESCALATED",
+
+            run,
+
+            reason: execution.result.reason,
+
+            executionId: execution.executionId,
+          };
+      }
+    }
+
+    if (action.kind === "RETRY_NOTIFICATION") {
+      if (!supportsNotificationRetry(args.repository)) {
+        throw new Error(
+          "The configured action repository does not support notification retries.",
+        );
+      }
+
+      const executionNow = now();
+
+      const retryNotificationAction: RetryNotificationAction = {
+        ...action,
+
+        kind: "RETRY_NOTIFICATION",
+      };
+
+      const execution = await executeRetryNotification({
+        action: retryNotificationAction,
+
+        repository: args.repository,
+
+        auditStore: args.auditStore,
+
+        initiatedBy: {
+          type: "SYSTEM",
+          id: run.id,
+        },
+
+        now: executionNow,
+      });
+
+      run = {
+        ...run,
+        actionExecutionId: execution.executionId,
+      };
+
+      switch (execution.result.status) {
+        case "EXECUTED":
           run = transitionAutomationRun(run, "VERIFYING", now());
 
           await args.automationStore.save(run);

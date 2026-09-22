@@ -18,6 +18,7 @@ import {
 import { createPendingApproval } from "../../../src/actions/approval.js";
 import { InMemoryActionExecutionAuditStore } from "../../../src/actions/in-memory-action-execution-audit-store.js";
 import { InMemoryActionExecutionRepository } from "../../../src/actions/in-memory-action-execution-repository.js";
+import { executeAuditedRetryNotification } from "../../../src/actions/execute-audited-retry-notification.js";
 
 const repository: ActionExecutionRepository = {
   async getExecutionContext() {
@@ -919,5 +920,124 @@ describe("executeAutomationAction", () => {
     expect(createFulfillmentAttemptSpy).not.toHaveBeenCalled();
 
     expect(executeCreateFulfillmentAttempt).not.toHaveBeenCalled();
+  });
+
+  it("executes a notification retry and moves the automation to VERIFYING", async () => {
+    const automationStore = new InMemoryAutomationStore();
+    const remediationStore = new InMemoryRemediationStore();
+
+    let run = createAutomationRun({
+      id: "AUTO-NOT-1",
+      orderId: "ORD-NOT-1",
+    });
+
+    run = transitionAutomationRun(run, "INVESTIGATING");
+
+    run = {
+      ...run,
+      investigationRunId: "INV-AUTO-NOT-1",
+    };
+
+    run = transitionAutomationRun(run, "PLANNING_REMEDIATION");
+
+    run = {
+      ...run,
+      remediationRunId: "REM-AUTO-NOT-1",
+    };
+
+    run = transitionAutomationRun(run, "EXECUTING");
+
+    await automationStore.save(run);
+
+    await remediationStore.save({
+      id: "REM-AUTO-NOT-1",
+      orderId: "ORD-NOT-1",
+      automationRunId: "AUTO-NOT-1",
+      investigationRunId: "INV-AUTO-NOT-1",
+      status: "COMPLETED",
+
+      recommendation: {
+        status: "RECOMMENDATION_READY",
+
+        summary: "Delivery succeeded but the customer notification failed.",
+
+        actions: [
+          {
+            disposition: "PRIMARY",
+            actionKind: "RETRY_NOTIFICATION",
+            instruction: "Retry the failed customer notification.",
+            supportedByRunbookIds: ["RUNBOOK-NOTIFICATION-FAILURE"],
+          },
+        ],
+      },
+
+      retrievedRunbookIds: ["RUNBOOK-NOTIFICATION-FAILURE"],
+
+      startedAt: "2026-09-22T18:00:00.000Z",
+      updatedAt: "2026-09-22T18:01:00.000Z",
+      failureReason: null,
+    });
+
+    const notificationRepository = {
+      ...repository,
+
+      async retryNotification() {
+        throw new Error(
+          "Repository should not be called directly by the coordinator test.",
+        );
+      },
+    };
+
+    const executeRetryNotification = vi.fn<
+      typeof executeAuditedRetryNotification
+    >(async () => ({
+      executionId: "ACT-NOT-1",
+
+      result: {
+        status: "EXECUTED",
+        notificationId: "NOT-RETRY-1",
+        notificationStatus: "PENDING",
+      },
+    }));
+
+    const result = await executeAutomationAction({
+      automationRunId: "AUTO-NOT-1",
+
+      automationStore,
+
+      remediationStore,
+
+      repository: notificationRepository,
+
+      auditStore,
+
+      executeRetryNotification,
+    });
+
+    expect(result.status).toBe("VERIFYING");
+
+    expect(result.run.status).toBe("VERIFYING");
+
+    expect(result.run.actionExecutionId).toBe("ACT-NOT-1");
+
+    expect(executeRetryNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: {
+          kind: "RETRY_NOTIFICATION",
+          orderId: "ORD-NOT-1",
+          reason:
+            "Grounded remediation requires retrying the failed customer notification.",
+        },
+
+        repository: notificationRepository,
+
+        auditStore,
+
+        initiatedBy: {
+          type: "SYSTEM",
+          id: "AUTO-NOT-1",
+        },
+      }),
+    );
   });
 });
