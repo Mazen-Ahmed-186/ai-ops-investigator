@@ -17,6 +17,13 @@ export const runbookSections: RunbookSection[] = [
   },
 
   {
+    id: "RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE",
+    title: "Confirmed fulfillment failure",
+    content:
+      "When a previous fulfillment attempt is definitively CONFIRMED_FAILED, payment remains captured, no active entitlement or successful account delivery exists, and no blocking fulfillment attempt remains, a replacement fulfillment attempt may be created. Creating another fulfillment attempt can trigger a new external side effect and therefore requires explicit human approval. Do not create another attempt while an existing attempt is PENDING, ACTIVE, UNKNOWN, RECONCILING, or MANUAL_REVIEW. A timeout or otherwise unknown provider outcome is not a confirmed failure; reconcile unknown outcomes before considering another attempt.",
+  },
+
+  {
     id: "RUNBOOK-NOTIFICATION-FAILURE",
     title: "Customer notification failure",
     content: [

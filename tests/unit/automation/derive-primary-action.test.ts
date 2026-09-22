@@ -227,4 +227,73 @@ describe("derivePrimaryAction", () => {
       reason: "No applicable grounded remediation was found.",
     });
   });
+
+  it("derives a fulfillment attempt when supported by the confirmed-failure runbook", () => {
+    const remediation = createRemediation({
+      recommendation: {
+        status: "RECOMMENDATION_READY",
+
+        summary:
+          "The previous fulfillment attempt definitively failed and a replacement attempt is appropriate.",
+
+        actions: [
+          {
+            disposition: "PRIMARY",
+
+            actionKind: "CREATE_FULFILLMENT_ATTEMPT",
+
+            instruction:
+              "Create a replacement fulfillment attempt after approval.",
+
+            supportedByRunbookIds: ["RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE"],
+          },
+        ],
+      },
+
+      retrievedRunbookIds: ["RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE"],
+    });
+
+    expect(derivePrimaryAction(remediation)).toEqual({
+      status: "ACTION_READY",
+
+      action: {
+        kind: "CREATE_FULFILLMENT_ATTEMPT",
+
+        orderId: remediation.orderId,
+
+        reason:
+          "Grounded remediation requires creating a new fulfillment attempt.",
+      },
+
+      supportedByRunbookIds: ["RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE"],
+    });
+  });
+
+  it("does not let the unknown-fulfillment runbook authorize another attempt", () => {
+    const remediation = createRemediation({
+      recommendation: {
+        status: "RECOMMENDATION_READY",
+
+        summary: "Create another fulfillment attempt.",
+
+        actions: [
+          {
+            disposition: "PRIMARY",
+
+            actionKind: "CREATE_FULFILLMENT_ATTEMPT",
+
+            instruction: "Create another attempt.",
+
+            supportedByRunbookIds: ["RUNBOOK-UNKNOWN-FULFILLMENT"],
+          },
+        ],
+      },
+
+      retrievedRunbookIds: ["RUNBOOK-UNKNOWN-FULFILLMENT"],
+    });
+
+    const result = derivePrimaryAction(remediation);
+
+    expect(result.status).toBe("ESCALATE");
+  });
 });

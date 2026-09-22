@@ -18,4 +18,17 @@ describe("searchRunbooks", () => {
 
     expect(results).toEqual([]);
   });
+
+  it("retrieves the confirmed fulfillment failure runbook", () => {
+    const results = searchRunbooks(
+      "previous fulfillment attempt confirmed failed payment captured no entitlement no delivery create replacement fulfillment attempt",
+    );
+
+    expect(
+      results.some(
+        (result) =>
+          result.section.id === "RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE",
+      ),
+    ).toBe(true);
+  });
 });
