@@ -34,6 +34,10 @@ describe("createAgenticRemediationGenerator", () => {
 
         actions: [
           {
+            disposition: "PRIMARY",
+
+            actionKind: "RECONCILE_ORDER_STATE",
+
             instruction:
               "Reconcile the stale order state without repeating fulfillment.",
 
@@ -77,6 +81,10 @@ describe("createAgenticRemediationGenerator", () => {
 
         actions: [
           {
+            disposition: "PRIMARY",
+
+            actionKind: "RECONCILE_ORDER_STATE",
+
             instruction:
               "Reconcile the stale order state without repeating fulfillment.",
 

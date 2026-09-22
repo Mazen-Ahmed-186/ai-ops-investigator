@@ -103,6 +103,13 @@ export async function runAgenticRemediation(
     "Every recommended action must cite at least one runbook that was actually retrieved.",
     "Do not repeat an identical runbook search.",
     "If no retrieved runbook supports remediation, return NO_APPLICABLE_RUNBOOK.",
+    "Classify each remediation action as PRIMARY, FOLLOW_UP, or CONSTRAINT.",
+    "Use PRIMARY only for the single next executable action that directly addresses the diagnosed incident.",
+    "Use FOLLOW_UP for executable work that is valid but secondary to resolving the diagnosed incident.",
+    "Use CONSTRAINT for prohibitions, warnings, or instructions describing what must not be done.",
+    "PRIMARY and FOLLOW_UP actions must use one of the provided action kinds.",
+    "CONSTRAINT actions must use a null actionKind.",
+    "Do not invent an executable action kind when the retrieved runbooks only support investigation, reconciliation, or escalation outside the available action set.",
   ].join(" ");
 
   while (true) {

@@ -97,6 +97,10 @@ describe("createInvestigationBackedRemediationPlanner", () => {
 
         actions: [
           {
+            disposition: "PRIMARY",
+
+            actionKind: "RECONCILE_ORDER_STATE",
+
             instruction: "Reconcile the stale order state.",
 
             supportedByRunbookIds: ["RUNBOOK-DB-TIMEOUT"],

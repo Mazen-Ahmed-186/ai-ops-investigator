@@ -8,10 +8,17 @@ describe("validateRemediationGrounding", () => {
       validateRemediationGrounding(
         {
           status: "RECOMMENDATION_READY",
+
           summary: "Reconcile the stale order state.",
+
           actions: [
             {
+              disposition: "PRIMARY",
+
+              actionKind: "RECONCILE_ORDER_STATE",
+
               instruction: "Re-read the current order state.",
+
               supportedByRunbookIds: ["RUNBOOK-DB-TIMEOUT"],
             },
           ],
@@ -30,10 +37,17 @@ describe("validateRemediationGrounding", () => {
       validateRemediationGrounding(
         {
           status: "RECOMMENDATION_READY",
+
           summary: "Reconcile the stale order state.",
+
           actions: [
             {
+              disposition: "PRIMARY",
+
+              actionKind: "RECONCILE_ORDER_STATE",
+
               instruction: "Perform an unsupported action.",
+
               supportedByRunbookIds: ["RUNBOOK-DOES-NOT-EXIST"],
             },
           ],
@@ -54,10 +68,17 @@ describe("validateRemediationGrounding", () => {
       validateRemediationGrounding(
         {
           status: "NO_APPLICABLE_RUNBOOK",
+
           summary: "No supported remediation was found.",
+
           actions: [
             {
+              disposition: "PRIMARY",
+
+              actionKind: "RECONCILE_ORDER_STATE",
+
               instruction: "Do something anyway.",
+
               supportedByRunbookIds: ["RUNBOOK-DB-TIMEOUT"],
             },
           ],
