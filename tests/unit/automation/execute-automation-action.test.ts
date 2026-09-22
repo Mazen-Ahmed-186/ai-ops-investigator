@@ -9,6 +9,15 @@ import { InMemoryAutomationStore } from "../../../src/automation/in-memory-autom
 import { transitionAutomationRun } from "../../../src/automation/state-machine.js";
 import { InMemoryRemediationStore } from "../../../src/remediations/in-memory-remediation-store.js";
 import type { RemediationRun } from "../../../src/remediations/types.js";
+import type { ApprovalStore } from "../../../src/actions/approval-store.js";
+import { executeAuditedCreateFulfillmentAttempt } from "../../../src/actions/execute-audited-create-fulfillment-attempt.js";
+import {
+  consumeApproval,
+  decideApproval,
+} from "../../../src/actions/approval-lifecycle.js";
+import { createPendingApproval } from "../../../src/actions/approval.js";
+import { InMemoryActionExecutionAuditStore } from "../../../src/actions/in-memory-action-execution-audit-store.js";
+import { InMemoryActionExecutionRepository } from "../../../src/actions/in-memory-action-execution-repository.js";
 
 const repository: ActionExecutionRepository = {
   async getExecutionContext() {
@@ -309,5 +318,606 @@ describe("executeAutomationAction", () => {
 
       failureReason: "Database unavailable.",
     });
+  });
+
+  it("executes an approved fulfillment-attempt action and moves to VERIFYING", async () => {
+    const automationStore = new InMemoryAutomationStore();
+
+    const remediationStore = new InMemoryRemediationStore();
+
+    let run = createAutomationRun({
+      id: "AUTO-1",
+      orderId: "ORD-2001",
+    });
+
+    run = transitionAutomationRun(run, "INVESTIGATING");
+
+    run = {
+      ...run,
+      investigationRunId: "INV-AUTO-1",
+    };
+
+    run = transitionAutomationRun(run, "PLANNING_REMEDIATION");
+
+    run = {
+      ...run,
+      remediationRunId: "REM-AUTO-1",
+      approvalId: "APR-AUTO-1",
+    };
+
+    run = transitionAutomationRun(run, "WAITING_FOR_APPROVAL");
+
+    run = transitionAutomationRun(run, "EXECUTING");
+
+    await automationStore.save(run);
+
+    await remediationStore.save({
+      id: "REM-AUTO-1",
+
+      orderId: "ORD-2001",
+
+      automationRunId: "AUTO-1",
+
+      investigationRunId: "INV-AUTO-1",
+
+      status: "COMPLETED",
+
+      recommendation: {
+        status: "RECOMMENDATION_READY",
+
+        summary: "The prior fulfillment attempt definitively failed.",
+
+        actions: [
+          {
+            disposition: "PRIMARY",
+
+            actionKind: "CREATE_FULFILLMENT_ATTEMPT",
+
+            instruction: "Create a replacement fulfillment attempt.",
+
+            supportedByRunbookIds: ["RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE"],
+          },
+        ],
+      },
+
+      retrievedRunbookIds: ["RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE"],
+
+      startedAt: "2026-09-22T15:00:00.000Z",
+
+      updatedAt: "2026-09-22T15:01:00.000Z",
+
+      failureReason: null,
+    });
+
+    const approvalStore: ApprovalStore = {
+      async save() {},
+      async get() {
+        return null;
+      },
+      async listByOrderId() {
+        return [];
+      },
+    };
+
+    const fulfillmentRepository = {
+      ...repository,
+
+      async createFulfillmentAttempt() {
+        throw new Error(
+          "Repository should not be called by the coordinator test.",
+        );
+      },
+    };
+
+    const executeCreateFulfillmentAttempt = vi.fn<
+      typeof executeAuditedCreateFulfillmentAttempt
+    >(async () => ({
+      executionId: "ACT-FUL-1",
+
+      result: {
+        status: "EXECUTED",
+
+        attemptId: "FUL-NEW-1",
+
+        attemptStatus: "PENDING",
+      },
+    }));
+
+    const result = await executeAutomationAction({
+      automationRunId: "AUTO-1",
+
+      automationStore,
+
+      remediationStore,
+
+      repository: fulfillmentRepository,
+
+      auditStore,
+
+      approvalStore,
+
+      executeCreateFulfillmentAttempt,
+    });
+
+    expect(result.status).toBe("VERIFYING");
+
+    expect(result.run.status).toBe("VERIFYING");
+
+    expect(result.run.actionExecutionId).toBe("ACT-FUL-1");
+
+    expect(executeCreateFulfillmentAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: {
+          kind: "CREATE_FULFILLMENT_ATTEMPT",
+
+          orderId: "ORD-2001",
+
+          reason:
+            "Grounded remediation requires creating a new fulfillment attempt.",
+        },
+
+        approvalId: "APR-AUTO-1",
+
+        approvalStore,
+
+        repository: fulfillmentRepository,
+
+        auditStore,
+
+        initiatedBy: {
+          type: "SYSTEM",
+
+          id: "AUTO-1",
+        },
+      }),
+    );
+  });
+
+  it("recovers a completed consumed execution without replaying the fulfillment write", async () => {
+    const automationStore = new InMemoryAutomationStore();
+
+    const remediationStore = new InMemoryRemediationStore();
+
+    let run = createAutomationRun({
+      id: "AUTO-1",
+      orderId: "ORD-2001",
+    });
+
+    run = transitionAutomationRun(run, "INVESTIGATING");
+
+    run = {
+      ...run,
+      investigationRunId: "INV-AUTO-1",
+    };
+
+    run = transitionAutomationRun(run, "PLANNING_REMEDIATION");
+
+    run = {
+      ...run,
+      remediationRunId: "REM-AUTO-1",
+      approvalId: "APR-AUTO-1",
+    };
+
+    run = transitionAutomationRun(run, "WAITING_FOR_APPROVAL");
+
+    run = transitionAutomationRun(run, "EXECUTING");
+
+    await automationStore.save(run);
+
+    await remediationStore.save({
+      id: "REM-AUTO-1",
+
+      orderId: "ORD-2001",
+
+      automationRunId: "AUTO-1",
+
+      investigationRunId: "INV-AUTO-1",
+
+      status: "COMPLETED",
+
+      recommendation: {
+        status: "RECOMMENDATION_READY",
+
+        summary: "Previous fulfillment definitively failed.",
+
+        actions: [
+          {
+            disposition: "PRIMARY",
+
+            actionKind: "CREATE_FULFILLMENT_ATTEMPT",
+
+            instruction: "Create another attempt after approval.",
+
+            supportedByRunbookIds: ["RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE"],
+          },
+        ],
+      },
+
+      retrievedRunbookIds: ["RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE"],
+
+      startedAt: "2026-09-22T18:00:00.000Z",
+
+      updatedAt: "2026-09-22T18:01:00.000Z",
+
+      failureReason: null,
+    });
+
+    const action = {
+      kind: "CREATE_FULFILLMENT_ATTEMPT" as const,
+
+      orderId: "ORD-2001",
+
+      reason:
+        "Grounded remediation requires creating a new fulfillment attempt.",
+    };
+
+    const approved = decideApproval({
+      approval: createPendingApproval({
+        id: "APR-AUTO-1",
+
+        action,
+      }),
+
+      decision: "APPROVE",
+
+      decidedBy: "admin-1",
+    });
+
+    const consumed = consumeApproval({
+      approval: approved,
+
+      executionId: "ACT-RECOVERED-1",
+    });
+
+    const approvalStore = {
+      async save() {},
+
+      async get() {
+        return structuredClone(consumed);
+      },
+
+      async listByOrderId() {
+        return [structuredClone(consumed)];
+      },
+    };
+
+    const auditStore = new InMemoryActionExecutionAuditStore();
+
+    await auditStore.save({
+      id: "ACT-RECOVERED-1",
+
+      action,
+
+      initiatedBy: {
+        type: "SYSTEM",
+
+        id: "AUTO-1",
+      },
+
+      approvalId: "APR-AUTO-1",
+
+      status: "EXECUTED",
+
+      startedAt: "2026-09-22T18:05:00.000Z",
+
+      completedAt: "2026-09-22T18:05:01.000Z",
+
+      reason: "Created fulfillment attempt FUL-NEW-1 with status PENDING.",
+
+      validationReasons: [],
+
+      error: null,
+
+      effect: {
+        kind: "FULFILLMENT_ATTEMPT_CREATED",
+
+        attemptId: "FUL-NEW-1",
+
+        attemptStatus: "PENDING",
+      },
+    });
+
+    const repository = new InMemoryActionExecutionRepository([
+      {
+        order: {
+          id: "ORD-2001",
+          status: "PROCESSING",
+        },
+
+        payments: [
+          {
+            status: "CAPTURED",
+          },
+        ],
+
+        fulfillmentAttempts: [
+          {
+            id: "FUL-OLD-1",
+            status: "CONFIRMED_FAILED",
+          },
+
+          {
+            id: "FUL-NEW-1",
+            status: "PENDING",
+          },
+        ],
+
+        entitlements: [],
+
+        accountDeliveries: [],
+
+        notifications: [],
+
+        refunds: [],
+
+        refundAllowedByBusinessPolicy: true,
+      },
+    ]);
+
+    const createFulfillmentAttemptSpy = vi
+      .spyOn(repository, "createFulfillmentAttempt")
+      .mockRejectedValue(
+        new Error("Recovered execution must not perform another write."),
+      );
+
+    const executeCreateFulfillmentAttempt = vi.fn<
+      typeof executeAuditedCreateFulfillmentAttempt
+    >(async () => {
+      throw new Error(
+        "Recovered execution must not invoke the audited executor.",
+      );
+    });
+
+    const result = await executeAutomationAction({
+      automationRunId: "AUTO-1",
+
+      automationStore,
+
+      remediationStore,
+
+      repository,
+
+      auditStore,
+
+      approvalStore,
+
+      executeCreateFulfillmentAttempt,
+    });
+
+    expect(result.status).toBe("VERIFYING");
+
+    expect(result.run.status).toBe("VERIFYING");
+
+    expect(result.run.actionExecutionId).toBe("ACT-RECOVERED-1");
+
+    expect(createFulfillmentAttemptSpy).not.toHaveBeenCalled();
+
+    expect(executeCreateFulfillmentAttempt).not.toHaveBeenCalled();
+
+    expect(executeCreateFulfillmentAttempt).not.toHaveBeenCalled();
+  });
+
+  it("escalates an ambiguous consumed execution without replaying the fulfillment write", async () => {
+    const automationStore = new InMemoryAutomationStore();
+
+    const remediationStore = new InMemoryRemediationStore();
+
+    let run = createAutomationRun({
+      id: "AUTO-1",
+      orderId: "ORD-2001",
+    });
+
+    run = transitionAutomationRun(run, "INVESTIGATING");
+
+    run = {
+      ...run,
+      investigationRunId: "INV-AUTO-1",
+    };
+
+    run = transitionAutomationRun(run, "PLANNING_REMEDIATION");
+
+    run = {
+      ...run,
+      remediationRunId: "REM-AUTO-1",
+      approvalId: "APR-AUTO-1",
+    };
+
+    run = transitionAutomationRun(run, "WAITING_FOR_APPROVAL");
+
+    run = transitionAutomationRun(run, "EXECUTING");
+
+    await automationStore.save(run);
+
+    await remediationStore.save({
+      id: "REM-AUTO-1",
+
+      orderId: "ORD-2001",
+
+      automationRunId: "AUTO-1",
+
+      investigationRunId: "INV-AUTO-1",
+
+      status: "COMPLETED",
+
+      recommendation: {
+        status: "RECOMMENDATION_READY",
+
+        summary: "Previous fulfillment definitively failed.",
+
+        actions: [
+          {
+            disposition: "PRIMARY",
+
+            actionKind: "CREATE_FULFILLMENT_ATTEMPT",
+
+            instruction: "Create another attempt after approval.",
+
+            supportedByRunbookIds: ["RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE"],
+          },
+        ],
+      },
+
+      retrievedRunbookIds: ["RUNBOOK-CONFIRMED-FULFILLMENT-FAILURE"],
+
+      startedAt: "2026-09-22T18:00:00.000Z",
+
+      updatedAt: "2026-09-22T18:01:00.000Z",
+
+      failureReason: null,
+    });
+
+    const action = {
+      kind: "CREATE_FULFILLMENT_ATTEMPT" as const,
+
+      orderId: "ORD-2001",
+
+      reason:
+        "Grounded remediation requires creating a new fulfillment attempt.",
+    };
+
+    const approved = decideApproval({
+      approval: createPendingApproval({
+        id: "APR-AUTO-1",
+
+        action,
+      }),
+
+      decision: "APPROVE",
+
+      decidedBy: "admin-1",
+    });
+
+    const consumed = consumeApproval({
+      approval: approved,
+
+      executionId: "ACT-AMBIGUOUS-1",
+    });
+
+    const approvalStore: ApprovalStore = {
+      async save() {},
+
+      async get() {
+        return structuredClone(consumed);
+      },
+
+      async listByOrderId() {
+        return [structuredClone(consumed)];
+      },
+    };
+
+    const auditStore = new InMemoryActionExecutionAuditStore();
+
+    await auditStore.save({
+      id: "ACT-AMBIGUOUS-1",
+
+      action,
+
+      initiatedBy: {
+        type: "SYSTEM",
+
+        id: "AUTO-1",
+      },
+
+      approvalId: "APR-AUTO-1",
+
+      status: "STARTED",
+
+      startedAt: "2026-09-22T18:05:00.000Z",
+
+      completedAt: null,
+
+      reason: null,
+
+      validationReasons: [],
+
+      error: null,
+
+      effect: null,
+    });
+
+    const repository = new InMemoryActionExecutionRepository([
+      {
+        order: {
+          id: "ORD-2001",
+          status: "PROCESSING",
+        },
+
+        payments: [
+          {
+            status: "CAPTURED",
+          },
+        ],
+
+        fulfillmentAttempts: [
+          {
+            id: "FUL-OLD-1",
+            status: "CONFIRMED_FAILED",
+          },
+        ],
+
+        entitlements: [],
+
+        accountDeliveries: [],
+
+        notifications: [],
+
+        refunds: [],
+
+        refundAllowedByBusinessPolicy: true,
+      },
+    ]);
+
+    const createFulfillmentAttemptSpy = vi
+      .spyOn(repository, "createFulfillmentAttempt")
+      .mockRejectedValue(
+        new Error(
+          "Ambiguous execution must not perform another fulfillment write.",
+        ),
+      );
+
+    const executeCreateFulfillmentAttempt = vi.fn<
+      typeof executeAuditedCreateFulfillmentAttempt
+    >(async () => {
+      throw new Error(
+        "Ambiguous execution must not invoke the audited executor.",
+      );
+    });
+
+    const result = await executeAutomationAction({
+      automationRunId: "AUTO-1",
+
+      automationStore,
+
+      remediationStore,
+
+      repository,
+
+      auditStore,
+
+      approvalStore,
+
+      executeCreateFulfillmentAttempt,
+    });
+
+    expect(result.status).toBe("ESCALATED");
+
+    expect(result.run.status).toBe("ESCALATED");
+
+    expect(result.run.actionExecutionId).toBe("ACT-AMBIGUOUS-1");
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "ESCALATED",
+
+        executionId: "ACT-AMBIGUOUS-1",
+
+        reason:
+          "Execution ACT-AMBIGUOUS-1 is incomplete after its approval was consumed; the side-effect outcome must be reconciled before any retry.",
+      }),
+    );
+
+    expect(createFulfillmentAttemptSpy).not.toHaveBeenCalled();
+
+    expect(executeCreateFulfillmentAttempt).not.toHaveBeenCalled();
   });
 });

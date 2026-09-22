@@ -23,7 +23,10 @@
     "smoke:fulfillment-approval": "tsx src/ai/run-fulfillment-approval-smoke.ts",
     "smoke:automation-investigation": "tsx src/automation/run-investigation-automation-smoke.ts",
     "smoke:automation-resume": "tsx src/automation/run-investigation-crash-resume-smoke.ts",
-    "smoke:automation-remediation": "tsx src/automation/run-remediation-automation-smoke.ts"
+    "smoke:automation-remediation": "tsx src/automation/run-remediation-automation-smoke.ts",
+    "smoke:automation-approval": "tsx src/automation/run-approval-automation-smoke.ts",
+    "eval:automation": "tsx evals/automation/run.ts",
+    "eval:automation-routing": "tsx evals/automation/run-routing.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
