@@ -64,9 +64,18 @@ export async function executeAuditedCreateFulfillmentAttempt(args: {
       case "EXECUTED":
         audit = {
           ...audit,
+
           status: "EXECUTED",
+
           completedAt,
+
           reason: `Created fulfillment attempt ${result.attemptId} with status ${result.attemptStatus}.`,
+
+          effect: {
+            kind: "FULFILLMENT_ATTEMPT_CREATED",
+            attemptId: result.attemptId,
+            attemptStatus: result.attemptStatus,
+          },
         };
 
         break;
@@ -95,6 +104,16 @@ export async function executeAuditedCreateFulfillmentAttempt(args: {
         audit = {
           ...audit,
           status: "APPROVAL_EXPIRED",
+          completedAt,
+          reason: result.reason,
+        };
+
+        break;
+
+      case "APPROVAL_CONSUMED":
+        audit = {
+          ...audit,
+          status: "APPROVAL_CONSUMED",
           completedAt,
           reason: result.reason,
         };

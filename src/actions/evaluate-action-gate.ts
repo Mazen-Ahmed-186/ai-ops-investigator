@@ -4,6 +4,7 @@ import { expireApproval } from "./approval-lifecycle.js";
 import { evaluateActionPolicy } from "./policy.js";
 import type { AgentActionRequest } from "./types.js";
 import { validateActionExecution } from "./validate-action-execution.js";
+import { approvalMatchesAction } from "./approval-matches-action.js";
 
 export type ActionGateResult =
   | {
@@ -35,17 +36,6 @@ export type ActionGateResult =
       reason: string;
       validationReasons: string[];
     };
-
-function approvalMatchesAction(
-  approval: ActionApproval,
-  action: AgentActionRequest,
-) {
-  return (
-    approval.action.kind === action.kind &&
-    approval.action.orderId === action.orderId &&
-    approval.action.reason === action.reason
-  );
-}
 
 export function evaluateActionGate(args: {
   action: AgentActionRequest;

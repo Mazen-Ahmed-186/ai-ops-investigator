@@ -53,6 +53,12 @@ export async function executeAuditedReconcileOrderState(args: {
           completedAt,
 
           reason: `Order transitioned from ${result.previousStatus} to ${result.currentStatus}.`,
+
+          effect: {
+            kind: "ORDER_STATE_RECONCILED",
+            previousStatus: result.previousStatus,
+            currentStatus: result.currentStatus,
+          },
         };
 
         break;

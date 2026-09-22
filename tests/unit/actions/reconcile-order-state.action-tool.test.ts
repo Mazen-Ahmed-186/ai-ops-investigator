@@ -61,7 +61,6 @@ describe("reconcile_order_state action tool", () => {
     expect(audit).toMatchObject({
       initiatedBy: {
         type: "AGENT",
-
         id: "RUN-REMEDIATION-1",
       },
 
@@ -69,14 +68,19 @@ describe("reconcile_order_state action tool", () => {
 
       action: {
         kind: "RECONCILE_ORDER_STATE",
-
         orderId: "ORD-1001",
+      },
+
+      effect: {
+        kind: "ORDER_STATE_RECONCILED",
+        previousStatus: "PROCESSING",
+        currentStatus: "FULFILLED",
       },
     });
   });
 
   it("is idempotent when invoked again", async () => {
-    const { tool } = createTool();
+    const { tool, auditStore } = createTool();
 
     const input = {
       orderId: "ORD-1001",
@@ -94,6 +98,13 @@ describe("reconcile_order_state action tool", () => {
     expect(second.status).toBe("NO_OP");
 
     expect(second.executionId).not.toBe(first.executionId);
+
+    const secondAudit = await auditStore.get(second.executionId);
+
+    expect(secondAudit).toMatchObject({
+      status: "NO_OP",
+      effect: null,
+    });
   });
 
   it("returns a safe business outcome when current state blocks execution", async () => {

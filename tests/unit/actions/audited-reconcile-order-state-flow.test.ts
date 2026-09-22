@@ -56,6 +56,14 @@ describe("audited reconcile order state flow", () => {
       validationReasons: [],
 
       error: null,
+
+      effect: {
+        kind: "ORDER_STATE_RECONCILED",
+
+        previousStatus: "PROCESSING",
+
+        currentStatus: "FULFILLED",
+      },
     });
 
     expect(firstAudit?.completedAt).not.toBeNull();
@@ -82,6 +90,8 @@ describe("audited reconcile order state flow", () => {
       status: "NO_OP",
 
       reason: "Order is already FULFILLED.",
+
+      effect: null,
     });
 
     const history = await auditStore.listByOrderId("ORD-1001");
@@ -135,6 +145,8 @@ describe("audited reconcile order state flow", () => {
       status: "BLOCKED_BY_CURRENT_STATE",
 
       validationReasons: ["Account delivery must currently be delivered."],
+
+      effect: null,
     });
 
     expect(repository.getOrderStatus("ORD-1001")).toBe("PROCESSING");

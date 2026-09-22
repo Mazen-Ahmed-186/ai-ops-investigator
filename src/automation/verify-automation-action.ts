@@ -1,5 +1,8 @@
+import type { ActionExecutionAuditStore } from "../actions/action-execution-audit-store.js";
 import type { ActionExecutionRepository } from "../actions/action-execution-repository.js";
 import type { ActionExecutionContext } from "../actions/execution-context.js";
+import type { FulfillmentActionVerificationRepository } from "../actions/fulfillment-action-execution-repository.js";
+import type { AgentActionRequest } from "../actions/types.js";
 import type { RemediationStore } from "../remediations/store.js";
 import type { AutomationStore } from "./automation-store.js";
 import { derivePrimaryAction } from "./derive-primary-action.js";
@@ -48,11 +51,32 @@ function verifyReconcilePostcondition(
   return reasons;
 }
 
+function auditActionMatches(
+  auditAction: AgentActionRequest,
+  action: AgentActionRequest,
+) {
+  return (
+    auditAction.kind === action.kind &&
+    auditAction.orderId === action.orderId &&
+    auditAction.reason === action.reason
+  );
+}
+
+function supportsFulfillmentVerification(
+  repository: ActionExecutionRepository,
+): repository is FulfillmentActionVerificationRepository {
+  const candidate =
+    repository as Partial<FulfillmentActionVerificationRepository>;
+
+  return typeof candidate.getFulfillmentAttempt === "function";
+}
+
 export async function verifyAutomationAction(args: {
   automationRunId: string;
   automationStore: AutomationStore;
   remediationStore: RemediationStore;
   repository: ActionExecutionRepository;
+  auditStore?: ActionExecutionAuditStore;
   now?: () => Date;
 }): Promise<AutomationVerificationResult> {
   const now = args.now ?? (() => new Date());
@@ -117,7 +141,218 @@ export async function verifyAutomationAction(args: {
 
   const action = derivation.action;
 
-  if (action.kind !== "RECONCILE_ORDER_STATE") {
+  try {
+    if (action.kind === "RECONCILE_ORDER_STATE") {
+      const context = await args.repository.getExecutionContext(run.orderId);
+
+      if (!context) {
+        const reason = `Order ${run.orderId} was not found during verification.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      const verificationReasons = verifyReconcilePostcondition(context);
+
+      if (verificationReasons.length > 0) {
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason:
+            "The executed action did not satisfy its required postcondition.",
+
+          verificationReasons,
+        };
+      }
+
+      run = transitionAutomationRun(run, "COMPLETED", now());
+
+      await args.automationStore.save(run);
+
+      return {
+        status: "COMPLETED",
+
+        run,
+      };
+    }
+
+    if (action.kind === "CREATE_FULFILLMENT_ATTEMPT") {
+      if (!args.auditStore) {
+        throw new Error(
+          "Fulfillment-attempt verification requires an action execution audit store.",
+        );
+      }
+
+      if (!supportsFulfillmentVerification(args.repository)) {
+        throw new Error(
+          "The configured action repository does not support fulfillment-attempt verification.",
+        );
+      }
+
+      const audit = await args.auditStore.get(run.actionExecutionId);
+
+      if (!audit) {
+        const reason = `Action execution audit ${run.actionExecutionId} was not found during verification.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      if (!auditActionMatches(audit.action, action)) {
+        const reason = `Action execution audit ${audit.id} does not match the derived automation action.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      if (audit.status !== "EXECUTED") {
+        const reason = `Action execution audit ${audit.id} is ${audit.status}, not EXECUTED.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      if (run.approvalId && audit.approvalId !== run.approvalId) {
+        const reason = `Action execution audit ${audit.id} does not reference automation approval ${run.approvalId}.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      if (
+        !audit.effect ||
+        audit.effect.kind !== "FULFILLMENT_ATTEMPT_CREATED"
+      ) {
+        const reason = `Action execution audit ${audit.id} does not contain a fulfillment-attempt creation effect.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      const attempt = await args.repository.getFulfillmentAttempt(
+        run.orderId,
+        audit.effect.attemptId,
+      );
+
+      if (!attempt) {
+        const reason = `Fulfillment attempt ${audit.effect.attemptId} was not found during verification.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      if (attempt.status !== "PENDING") {
+        const reason = `Expected fulfillment attempt ${attempt.id} to be PENDING, received ${attempt.status}.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      run = transitionAutomationRun(run, "COMPLETED", now());
+
+      await args.automationStore.save(run);
+
+      return {
+        status: "COMPLETED",
+
+        run,
+      };
+    }
+
     const reason = `Automation verification does not support action ${action.kind}.`;
 
     run = transitionAutomationRun(run, "ESCALATED", now());
@@ -132,57 +367,6 @@ export async function verifyAutomationAction(args: {
       reason,
 
       verificationReasons: [reason],
-    };
-  }
-
-  try {
-    const context = await args.repository.getExecutionContext(run.orderId);
-
-    if (!context) {
-      const reason = `Order ${run.orderId} was not found during verification.`;
-
-      run = transitionAutomationRun(run, "ESCALATED", now());
-
-      await args.automationStore.save(run);
-
-      return {
-        status: "ESCALATED",
-
-        run,
-
-        reason,
-
-        verificationReasons: [reason],
-      };
-    }
-
-    const verificationReasons = verifyReconcilePostcondition(context);
-
-    if (verificationReasons.length > 0) {
-      run = transitionAutomationRun(run, "ESCALATED", now());
-
-      await args.automationStore.save(run);
-
-      return {
-        status: "ESCALATED",
-
-        run,
-
-        reason:
-          "The executed action did not satisfy its required postcondition.",
-
-        verificationReasons,
-      };
-    }
-
-    run = transitionAutomationRun(run, "COMPLETED", now());
-
-    await args.automationStore.save(run);
-
-    return {
-      status: "COMPLETED",
-
-      run,
     };
   } catch (error) {
     run = {

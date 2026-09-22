@@ -131,6 +131,8 @@ describe("create_fulfillment_attempt action tool", () => {
 
           id: "RUN-NO-APPROVAL",
         },
+
+        effect: null,
       });
     } finally {
       await approvals.cleanup();
@@ -193,6 +195,10 @@ describe("create_fulfillment_attempt action tool", () => {
 
       expect(result.status).toBe("EXECUTED");
 
+      if (result.status !== "EXECUTED") {
+        throw new Error("Expected successful fulfillment-attempt execution.");
+      }
+
       expect(repository.getFulfillmentAttempts("ORD-1001")).toHaveLength(2);
 
       const audit = await auditStore.get(result.executionId);
@@ -206,6 +212,14 @@ describe("create_fulfillment_attempt action tool", () => {
           type: "AGENT",
 
           id: "RUN-APPROVED",
+        },
+
+        effect: {
+          kind: "FULFILLMENT_ATTEMPT_CREATED",
+
+          attemptId: result.attemptId,
+
+          attemptStatus: "PENDING",
         },
       });
     } finally {
@@ -243,6 +257,8 @@ describe("create_fulfillment_attempt action tool", () => {
 
       await approvals.store.save(approved);
 
+      const auditStore = new InMemoryActionExecutionAuditStore();
+
       const tool = createFulfillmentAttemptActionTool({
         orderId: "ORD-1001",
 
@@ -254,7 +270,7 @@ describe("create_fulfillment_attempt action tool", () => {
 
         repository,
 
-        auditStore: new InMemoryActionExecutionAuditStore(),
+        auditStore,
 
         initiatedBy: {
           type: "AGENT",
@@ -277,8 +293,14 @@ describe("create_fulfillment_attempt action tool", () => {
 
       expect(storedApproval).toMatchObject({
         status: "CONSUMED",
-
         consumedByExecutionId: first.executionId,
+      });
+
+      const secondAudit = await auditStore.get(second.executionId);
+
+      expect(secondAudit).toMatchObject({
+        status: "APPROVAL_CONSUMED",
+        effect: null,
       });
 
       if (second.status === "BLOCKED_BY_CURRENT_STATE") {
