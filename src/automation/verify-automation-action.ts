@@ -2,6 +2,7 @@ import type { ActionExecutionAuditStore } from "../actions/action-execution-audi
 import type { ActionExecutionRepository } from "../actions/action-execution-repository.js";
 import type { ActionExecutionContext } from "../actions/execution-context.js";
 import type { FulfillmentActionVerificationRepository } from "../actions/fulfillment-action-execution-repository.js";
+import type { NotificationActionVerificationRepository } from "../actions/notification-action-execution-repository.js";
 import type { AgentActionRequest } from "../actions/types.js";
 import type { RemediationStore } from "../remediations/store.js";
 import type { AutomationStore } from "./automation-store.js";
@@ -69,6 +70,15 @@ function supportsFulfillmentVerification(
     repository as Partial<FulfillmentActionVerificationRepository>;
 
   return typeof candidate.getFulfillmentAttempt === "function";
+}
+
+function supportsNotificationVerification(
+  repository: ActionExecutionRepository,
+): repository is NotificationActionVerificationRepository {
+  const candidate =
+    repository as Partial<NotificationActionVerificationRepository>;
+
+  return typeof candidate.getNotification === "function";
 }
 
 export async function verifyAutomationAction(args: {
@@ -179,6 +189,145 @@ export async function verifyAutomationAction(args: {
             "The executed action did not satisfy its required postcondition.",
 
           verificationReasons,
+        };
+      }
+
+      run = transitionAutomationRun(run, "COMPLETED", now());
+
+      await args.automationStore.save(run);
+
+      return {
+        status: "COMPLETED",
+
+        run,
+      };
+    }
+
+    if (action.kind === "RETRY_NOTIFICATION") {
+      if (!args.auditStore) {
+        throw new Error(
+          "Notification-retry verification requires an action execution audit store.",
+        );
+      }
+
+      if (!supportsNotificationVerification(args.repository)) {
+        throw new Error(
+          "The configured action repository does not support notification verification.",
+        );
+      }
+
+      const audit = await args.auditStore.get(run.actionExecutionId);
+
+      if (!audit) {
+        const reason = `Action execution audit ${run.actionExecutionId} was not found during verification.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      if (!auditActionMatches(audit.action, action)) {
+        const reason = `Action execution audit ${audit.id} does not match the derived automation action.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      if (audit.status !== "EXECUTED") {
+        const reason = `Action execution audit ${audit.id} is ${audit.status}, not EXECUTED.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      if (!audit.effect || audit.effect.kind !== "NOTIFICATION_RETRY_CREATED") {
+        const reason = `Action execution audit ${audit.id} does not contain a notification-retry creation effect.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      const notification = await args.repository.getNotification(
+        run.orderId,
+        audit.effect.notificationId,
+      );
+
+      if (!notification) {
+        const reason = `Notification retry ${audit.effect.notificationId} was not found during verification.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
+        };
+      }
+
+      if (notification.status !== "PENDING") {
+        const reason = `Expected notification retry ${notification.id} to be PENDING, received ${notification.status}.`;
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+
+          run,
+
+          reason,
+
+          verificationReasons: [reason],
         };
       }
 
