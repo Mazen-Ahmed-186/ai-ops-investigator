@@ -4,6 +4,7 @@ import { createPendingApproval } from "../../../src/actions/approval.js";
 import {
   decideApproval,
   expireApproval,
+  consumeApproval,
 } from "../../../src/actions/approval-lifecycle.js";
 
 function createApproval() {
@@ -101,5 +102,75 @@ describe("approval lifecycle", () => {
         now: new Date("2026-09-21T12:02:00.000Z"),
       }),
     ).toThrow("Approval APR-1 cannot be decided from status APPROVED.");
+  });
+
+  it("expires an approved approval that was not executed in time", () => {
+    const approved = decideApproval({
+      approval: createPendingApproval({
+        id: "APR-1",
+
+        now: new Date("2026-09-22T12:00:00.000Z"),
+
+        ttlMs: 60_000,
+
+        action: {
+          kind: "ISSUE_REFUND",
+
+          orderId: "ORD-1001",
+
+          reason: "Refund customer.",
+        },
+      }),
+
+      decision: "APPROVE",
+
+      decidedBy: "admin-1",
+
+      now: new Date("2026-09-22T12:00:30.000Z"),
+    });
+
+    const expired = expireApproval(
+      approved,
+
+      new Date("2026-09-22T12:02:00.000Z"),
+    );
+
+    expect(expired.status).toBe("EXPIRED");
+  });
+
+  it("consumes an approved authorization exactly once", () => {
+    const approved = decideApproval({
+      approval: createApproval(),
+
+      decision: "APPROVE",
+
+      decidedBy: "admin-1",
+
+      now: new Date("2026-09-21T12:01:00.000Z"),
+    });
+
+    const consumed = consumeApproval({
+      approval: approved,
+
+      executionId: "ACT-1",
+
+      now: new Date("2026-09-21T12:02:00.000Z"),
+    });
+
+    expect(consumed).toMatchObject({
+      status: "CONSUMED",
+
+      consumedByExecutionId: "ACT-1",
+    });
+
+    expect(() =>
+      consumeApproval({
+        approval: consumed,
+
+        executionId: "ACT-2",
+
+        now: new Date("2026-09-21T12:03:00.000Z"),
+      }),
+    ).toThrow("Approval APR-1 cannot be consumed from status CONSUMED.");
   });
 });

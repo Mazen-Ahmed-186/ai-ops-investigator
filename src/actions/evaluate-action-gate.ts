@@ -27,6 +27,10 @@ export type ActionGateResult =
       reason: string;
     }
   | {
+      status: "APPROVAL_CONSUMED";
+      reason: string;
+    }
+  | {
       status: "BLOCKED_BY_CURRENT_STATE";
       reason: string;
       validationReasons: string[];
@@ -93,6 +97,13 @@ export function evaluateActionGate(args: {
         return {
           status: "APPROVAL_EXPIRED",
           reason: "The approval expired before execution.",
+        };
+
+      case "CONSUMED":
+        return {
+          status: "APPROVAL_CONSUMED",
+          reason:
+            "The approval has already been consumed by a previous execution attempt.",
         };
 
       case "APPROVED":

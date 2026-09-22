@@ -26,6 +26,7 @@ export const ApprovalStatusSchema = z.enum([
   "APPROVED",
   "REJECTED",
   "EXPIRED",
+  "CONSUMED",
 ]);
 
 export type ApprovalStatus = z.infer<typeof ApprovalStatusSchema>;
@@ -38,6 +39,8 @@ export const ActionApprovalSchema = z.object({
   expiresAt: z.string().datetime(),
   resolvedAt: z.string().datetime().nullable(),
   resolvedBy: z.string().min(1).nullable(),
+  consumedAt: z.string().datetime().nullable(),
+  consumedByExecutionId: z.string().min(1).nullable(),
 });
 
 export type ActionApproval = z.infer<typeof ActionApprovalSchema>;
@@ -60,5 +63,7 @@ export function createPendingApproval(args: {
     expiresAt: new Date(now.getTime() + ttlMs).toISOString(),
     resolvedAt: null,
     resolvedBy: null,
+    consumedAt: null,
+    consumedByExecutionId: null,
   };
 }

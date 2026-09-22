@@ -8,7 +8,7 @@ export function expireApproval(
   approval: ActionApproval,
   now = new Date(),
 ): ActionApproval {
-  if (approval.status !== "PENDING") {
+  if (approval.status !== "PENDING" && approval.status !== "APPROVED") {
     return approval;
   }
 
@@ -19,8 +19,7 @@ export function expireApproval(
   return {
     ...approval,
     status: "EXPIRED",
-    resolvedAt: now.toISOString(),
-    resolvedBy: null,
+    resolvedAt: approval.resolvedAt ?? now.toISOString(),
   };
 }
 
@@ -49,5 +48,34 @@ export function decideApproval(args: {
     status: args.decision === "APPROVE" ? "APPROVED" : "REJECTED",
     resolvedAt: now.toISOString(),
     resolvedBy: args.decidedBy,
+  };
+}
+
+export function consumeApproval(args: {
+  approval: ActionApproval;
+
+  executionId: string;
+
+  now?: Date;
+}): ActionApproval {
+  const now = args.now ?? new Date();
+
+  const effectiveApproval = expireApproval(args.approval, now);
+
+  if (effectiveApproval.status === "EXPIRED") {
+    throw new Error(`Approval ${effectiveApproval.id} has expired.`);
+  }
+
+  if (effectiveApproval.status !== "APPROVED") {
+    throw new Error(
+      `Approval ${effectiveApproval.id} cannot be consumed from status ${effectiveApproval.status}.`,
+    );
+  }
+
+  return {
+    ...effectiveApproval,
+    status: "CONSUMED",
+    consumedAt: now.toISOString(),
+    consumedByExecutionId: args.executionId,
   };
 }

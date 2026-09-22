@@ -30,6 +30,12 @@ export const ActionExecutionAuditStatusSchema = z.enum([
   "STARTED",
   "EXECUTED",
   "NO_OP",
+
+  "PENDING_APPROVAL",
+  "APPROVAL_REJECTED",
+  "APPROVAL_EXPIRED",
+  "APPROVAL_CONSUMED",
+
   "BLOCKED_BY_CURRENT_STATE",
   "DENIED",
   "NOT_FOUND",
@@ -42,23 +48,14 @@ export type ActionExecutionAuditStatus = z.infer<
 
 export const ActionExecutionAuditRecordSchema = z.object({
   id: z.string().min(1),
-
   action: AuditedAgentActionSchema,
-
   initiatedBy: ActionExecutionInitiatorSchema,
-
   approvalId: z.string().min(1).nullable(),
-
   status: ActionExecutionAuditStatusSchema,
-
   startedAt: z.string().datetime(),
-
   completedAt: z.string().datetime().nullable(),
-
   reason: z.string().nullable(),
-
   validationReasons: z.array(z.string()),
-
   error: z.string().nullable(),
 });
 
@@ -68,36 +65,23 @@ export type ActionExecutionAuditRecord = z.infer<
 
 export function createStartedActionExecutionAudit(args: {
   action: z.infer<typeof AuditedAgentActionSchema>;
-
   initiatedBy: ActionExecutionInitiator;
-
   approvalId?: string;
-
   now?: Date;
-
   id?: string;
 }): ActionExecutionAuditRecord {
   const now = args.now ?? new Date();
 
   return {
     id: args.id ?? `ACT-${randomUUID()}`,
-
     action: args.action,
-
     initiatedBy: args.initiatedBy,
-
     approvalId: args.approvalId ?? null,
-
     status: "STARTED",
-
     startedAt: now.toISOString(),
-
     completedAt: null,
-
     reason: null,
-
     validationReasons: [],
-
     error: null,
   };
 }

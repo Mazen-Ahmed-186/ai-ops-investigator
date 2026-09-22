@@ -61,6 +61,18 @@ export function validateActionExecution(
         reasons.push("A blocking fulfillment attempt already exists.");
       }
 
+      if (context.fulfillmentSucceeded) {
+        reasons.push("Fulfillment has already succeeded.");
+      }
+
+      if (context.entitlementActive) {
+        reasons.push("An active entitlement already exists.");
+      }
+
+      if (context.accountDeliveryDelivered) {
+        reasons.push("Account delivery has already completed.");
+      }
+
       if (
         context.orderStatus !== "PROCESSING" &&
         context.orderStatus !== "AWAITING_STOCK"

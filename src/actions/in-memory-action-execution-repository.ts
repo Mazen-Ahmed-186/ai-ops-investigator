@@ -4,6 +4,12 @@ import type {
 } from "./action-execution-repository.js";
 import type { ActionExecutionContext } from "./execution-context.js";
 import { validateActionExecution } from "./validate-action-execution.js";
+import { randomUUID } from "node:crypto";
+
+import type {
+  CreateFulfillmentAttemptWriteResult,
+  FulfillmentActionExecutionRepository,
+} from "./fulfillment-action-execution-repository.js";
 
 type PaymentStatus = "PENDING" | "CAPTURED" | "FAILED" | "REFUNDED";
 
@@ -37,6 +43,7 @@ export type MutableCommerceOrderSeed = {
   }>;
 
   fulfillmentAttempts: Array<{
+    id?: string;
     status: FulfillmentStatus;
   }>;
 
@@ -109,7 +116,7 @@ function buildExecutionContext(
   };
 }
 
-export class InMemoryActionExecutionRepository implements ActionExecutionRepository {
+export class InMemoryActionExecutionRepository implements FulfillmentActionExecutionRepository {
   private readonly orders = new Map<string, MutableCommerceOrderSeed>();
 
   constructor(seeds: MutableCommerceOrderSeed[]) {
@@ -180,7 +187,63 @@ export class InMemoryActionExecutionRepository implements ActionExecutionReposit
     };
   }
 
+  async createFulfillmentAttempt(
+    orderId: string,
+  ): Promise<CreateFulfillmentAttemptWriteResult> {
+    const state = this.orders.get(orderId);
+
+    if (!state) {
+      return {
+        status: "PRECONDITION_FAILED",
+
+        reasons: [`Order ${orderId} no longer exists.`],
+      };
+    }
+
+    const context = buildExecutionContext(state);
+
+    const validation = validateActionExecution(
+      {
+        kind: "CREATE_FULFILLMENT_ATTEMPT",
+        orderId,
+        reason:
+          "Validate fulfillment-attempt preconditions at the write boundary.",
+      },
+      context,
+    );
+
+    if (!validation.valid) {
+      return {
+        status: "PRECONDITION_FAILED",
+        reasons: validation.reasons,
+      };
+    }
+
+    const attemptId = `FUL-${randomUUID()}`;
+
+    state.fulfillmentAttempts.push({
+      id: attemptId,
+      status: "PENDING",
+    });
+
+    return {
+      status: "CREATED",
+      attemptId,
+      attemptStatus: "PENDING",
+    };
+  }
+
   getOrderStatus(orderId: string) {
     return this.orders.get(orderId)?.order.status ?? null;
+  }
+
+  getFulfillmentAttempts(orderId: string) {
+    const state = this.orders.get(orderId);
+
+    if (!state) {
+      return [];
+    }
+
+    return structuredClone(state.fulfillmentAttempts);
   }
 }

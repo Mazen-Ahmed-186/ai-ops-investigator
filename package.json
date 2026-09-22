@@ -19,7 +19,8 @@
     "eval:investigation:judge": "tsx evals/investigation/run-judge.ts",
     "eval:investigation:judge:calibration": "tsx evals/investigation/run-judge-calibration.ts",
     "eval:observability": "tsx evals/observability/run.ts",
-    "smoke:remediation-execution": "tsx src/ai/run-remediation-execution-smoke.ts"
+    "smoke:remediation-execution": "tsx src/ai/run-remediation-execution-smoke.ts",
+    "smoke:fulfillment-approval": "tsx src/ai/run-fulfillment-approval-smoke.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
