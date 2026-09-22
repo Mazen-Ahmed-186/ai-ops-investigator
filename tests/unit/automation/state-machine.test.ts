@@ -22,6 +22,8 @@ function createRun(status: AutomationRun["status"] = "PENDING"): AutomationRun {
     actionExecutionId: null,
 
     failureReason: null,
+
+    remediationRunId: null,
   };
 }
 

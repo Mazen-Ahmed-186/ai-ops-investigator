@@ -21,5 +21,6 @@ export function createAutomationRun(args: {
     approvalId: null,
     actionExecutionId: null,
     failureReason: null,
+    remediationRunId: null,
   };
 }

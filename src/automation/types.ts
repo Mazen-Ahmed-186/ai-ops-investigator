@@ -24,6 +24,7 @@ export const AutomationRunSchema = z.object({
   approvalId: z.string().min(1).nullable(),
   actionExecutionId: z.string().min(1).nullable(),
   failureReason: z.string().nullable(),
+  remediationRunId: z.string().min(1).nullable(),
 });
 
 export type AutomationRun = z.infer<typeof AutomationRunSchema>;
