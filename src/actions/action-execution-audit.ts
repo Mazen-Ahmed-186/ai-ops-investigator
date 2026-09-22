@@ -46,23 +46,6 @@ export type ActionExecutionAuditStatus = z.infer<
   typeof ActionExecutionAuditStatusSchema
 >;
 
-export const ActionExecutionAuditRecordSchema = z.object({
-  id: z.string().min(1),
-  action: AuditedAgentActionSchema,
-  initiatedBy: ActionExecutionInitiatorSchema,
-  approvalId: z.string().min(1).nullable(),
-  status: ActionExecutionAuditStatusSchema,
-  startedAt: z.string().datetime(),
-  completedAt: z.string().datetime().nullable(),
-  reason: z.string().nullable(),
-  validationReasons: z.array(z.string()),
-  error: z.string().nullable(),
-});
-
-export type ActionExecutionAuditRecord = z.infer<
-  typeof ActionExecutionAuditRecordSchema
->;
-
 export function createStartedActionExecutionAudit(args: {
   action: z.infer<typeof AuditedAgentActionSchema>;
   initiatedBy: ActionExecutionInitiator;
@@ -83,5 +66,47 @@ export function createStartedActionExecutionAudit(args: {
     reason: null,
     validationReasons: [],
     error: null,
+    effect: null,
   };
 }
+
+export const ActionExecutionEffectSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("ORDER_STATE_RECONCILED"),
+    previousStatus: z.literal("PROCESSING"),
+    currentStatus: z.literal("FULFILLED"),
+  }),
+
+  z.object({
+    kind: z.literal("NOTIFICATION_RETRY_CREATED"),
+    notificationId: z.string().min(1),
+    notificationStatus: z.literal("PENDING"),
+  }),
+
+  z.object({
+    kind: z.literal("FULFILLMENT_ATTEMPT_CREATED"),
+    attemptId: z.string().min(1),
+    attemptStatus: z.literal("PENDING"),
+  }),
+]);
+
+export type ActionExecutionEffect = z.infer<typeof ActionExecutionEffectSchema>;
+
+export const ActionExecutionAuditRecordSchema = z.object({
+  id: z.string().min(1),
+  action: AuditedAgentActionSchema,
+  initiatedBy: ActionExecutionInitiatorSchema,
+  approvalId: z.string().min(1).nullable(),
+  status: ActionExecutionAuditStatusSchema,
+  startedAt: z.string().datetime(),
+  completedAt: z.string().datetime().nullable(),
+  reason: z.string().nullable(),
+  validationReasons: z.array(z.string()),
+  error: z.string().nullable(),
+
+  effect: ActionExecutionEffectSchema.nullable().default(null),
+});
+
+export type ActionExecutionAuditRecord = z.infer<
+  typeof ActionExecutionAuditRecordSchema
+>;
