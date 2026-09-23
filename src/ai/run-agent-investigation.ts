@@ -21,8 +21,10 @@ import {
   IncidentAssessmentSchema,
   type IncidentAssessment,
 } from "./schemas.js";
-
-type InvestigationExecutionMode = "NEW" | "RESUME";
+import {
+  resolveInvestigationModelInput,
+  type InvestigationExecutionMode,
+} from "../investigations/resolve-model-input.js";
 
 type InvestigationRunResult =
   | {
@@ -149,38 +151,16 @@ async function executeInvestigation(
     occurredAt: occurredAt(),
   });
 
-  let previousResponseId: string | null;
+  const resolvedModelInput = resolveInvestigationModelInput(state, mode);
 
-  let input: string | ResponseInput;
+  let previousResponseId = resolvedModelInput.previousResponseId;
+
+  let input = resolvedModelInput.input;
 
   if (mode === "RESUME") {
-    previousResponseId = null;
-
-    input = buildReconstructedInvestigationInput(state);
-
     console.log(
       `Resuming ${state.id} from ${state.toolCalls} persisted tool observations.`,
     );
-  } else {
-    if (!state.continuation) {
-      throw new Error(`Investigation ${state.id} has no continuation state.`);
-    }
-
-    if (state.continuation.kind === "INITIAL") {
-      previousResponseId = null;
-
-      input = state.continuation.prompt;
-    } else {
-      previousResponseId = state.continuation.previousResponseId;
-
-      input = [
-        {
-          type: "function_call_output",
-          call_id: state.continuation.callId,
-          output: state.continuation.output,
-        },
-      ];
-    }
   }
 
   const executedToolCalls = new Set(state.executedToolCallSignatures);
