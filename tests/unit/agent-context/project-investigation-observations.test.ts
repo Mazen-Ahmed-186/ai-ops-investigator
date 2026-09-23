@@ -255,7 +255,90 @@ describe("projectInvestigationObservationFacts", () => {
     ).toEqual([]);
   });
 
-  it("does not invent compressed facts for unsupported observation shapes", () => {
+  it("projects order event history with event time and observation provenance", () => {
+    const toolExecutions: InvestigationRunState["toolExecutions"] = [
+      {
+        sequence: 1,
+
+        tool: "get_order_event_history",
+
+        arguments: {
+          orderId: "ORD-1001",
+        },
+
+        result: {
+          ok: true,
+
+          data: {
+            orderId: "ORD-1001",
+
+            events: [
+              {
+                id: "EVT-1001",
+
+                orderId: "ORD-1001",
+
+                type: "PAYMENT_CAPTURED",
+
+                occurredAt: "2026-09-16T09:01:00.000Z",
+              },
+              {
+                id: "EVT-1002",
+
+                orderId: "ORD-1001",
+
+                type: "FULFILLMENT_SUCCEEDED",
+
+                occurredAt: "2026-09-16T09:03:00.000Z",
+              },
+            ],
+
+            observedAt: "2026-09-23T16:00:00.000Z",
+
+            source: "commerce_event_history",
+          },
+        },
+
+        executedAt: "2026-09-23T16:00:00.001Z",
+      },
+    ];
+
+    const facts = projectInvestigationObservationFacts({
+      toolExecutions,
+    });
+
+    expect(facts).toEqual([
+      {
+        kind: "OBSERVATION",
+
+        statement:
+          "Order event EVT-1001 recorded PAYMENT_CAPTURED at 2026-09-16T09:01:00.000Z.",
+
+        source: {
+          type: "TOOL",
+          name: "get_order_event_history",
+        },
+
+        observedAt: "2026-09-23T16:00:00.000Z",
+      },
+
+      {
+        kind: "OBSERVATION",
+
+        statement:
+          "Order event EVT-1002 recorded FULFILLMENT_SUCCEEDED at 2026-09-16T09:03:00.000Z.",
+
+        source: {
+          type: "TOOL",
+          name: "get_order_event_history",
+        },
+
+        observedAt: "2026-09-23T16:00:00.000Z",
+      },
+    ]);
+  });
+
+  it("projects processing trace entries without inferring causality", () => {
     const toolExecutions: InvestigationRunState["toolExecutions"] = [
       {
         sequence: 1,
@@ -272,7 +355,36 @@ describe("projectInvestigationObservationFacts", () => {
           data: {
             orderId: "ORD-1001",
 
-            entries: [],
+            entries: [
+              {
+                id: "TRACE-1002",
+
+                orderId: "ORD-1001",
+
+                component: "order-completion-handler",
+
+                event: "ORDER_STATUS_UPDATE_ATTEMPTED",
+
+                occurredAt: "2026-09-16T09:04:01.200Z",
+
+                detail:
+                  "Attempted to transition order from PROCESSING to FULFILLED.",
+              },
+              {
+                id: "TRACE-1003",
+
+                orderId: "ORD-1001",
+
+                component: "persistence",
+
+                event: "DATABASE_TIMEOUT",
+
+                occurredAt: "2026-09-16T09:04:02.000Z",
+
+                detail:
+                  "Database operation timed out before the order status update was persisted.",
+              },
+            ],
 
             observedAt: "2026-09-23T16:00:00.000Z",
 
@@ -284,10 +396,16 @@ describe("projectInvestigationObservationFacts", () => {
       },
     ];
 
-    expect(
-      projectInvestigationObservationFacts({
-        toolExecutions,
-      }),
-    ).toEqual([]);
+    const facts = projectInvestigationObservationFacts({
+      toolExecutions,
+    });
+
+    expect(facts.map((fact) => fact.statement)).toEqual([
+      "Processing trace TRACE-1002 from order-completion-handler recorded ORDER_STATUS_UPDATE_ATTEMPTED at 2026-09-16T09:04:01.200Z. Detail: Attempted to transition order from PROCESSING to FULFILLED.",
+
+      "Processing trace TRACE-1003 from persistence recorded DATABASE_TIMEOUT at 2026-09-16T09:04:02.000Z. Detail: Database operation timed out before the order status update was persisted.",
+    ]);
+
+    expect(facts.every((fact) => fact.kind === "OBSERVATION")).toBe(true);
   });
 });

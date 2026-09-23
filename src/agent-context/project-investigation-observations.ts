@@ -169,6 +169,20 @@ function projectToolExecution(
         }),
       ];
 
+    case "get_order_event_history":
+      return projectEventHistory({
+        tool: execution.tool,
+        data,
+        observedAt,
+      });
+
+    case "get_order_processing_trace":
+      return projectProcessingTrace({
+        tool: execution.tool,
+        data,
+        observedAt,
+      });
+
     case "get_notification_state":
       return projectCollectionStatuses({
         tool: execution.tool,
@@ -181,6 +195,80 @@ function projectToolExecution(
     default:
       return [];
   }
+}
+
+function projectEventHistory(args: {
+  tool: string;
+  data: JsonRecord;
+  observedAt: string;
+}): AgentContextFact[] {
+  return asArray(args.data.events).flatMap((value) => {
+    const event = asRecord(value);
+
+    if (!event) {
+      return [];
+    }
+
+    const id = readString(event, "id");
+
+    const type = readString(event, "type");
+
+    const occurredAt = readString(event, "occurredAt");
+
+    if (!id || !type || !occurredAt) {
+      return [];
+    }
+
+    return [
+      createObservation({
+        tool: args.tool,
+
+        observedAt: args.observedAt,
+
+        statement: `Order event ${id} recorded ${type} at ${occurredAt}.`,
+      }),
+    ];
+  });
+}
+
+function projectProcessingTrace(args: {
+  tool: string;
+  data: JsonRecord;
+  observedAt: string;
+}): AgentContextFact[] {
+  return asArray(args.data.entries).flatMap((value) => {
+    const entry = asRecord(value);
+
+    if (!entry) {
+      return [];
+    }
+
+    const id = readString(entry, "id");
+
+    const component = readString(entry, "component");
+
+    const event = readString(entry, "event");
+
+    const occurredAt = readString(entry, "occurredAt");
+
+    const detail = readString(entry, "detail");
+
+    if (!id || !component || !event || !occurredAt) {
+      return [];
+    }
+
+    const detailSuffix = detail ? ` Detail: ${detail}` : "";
+
+    return [
+      createObservation({
+        tool: args.tool,
+
+        observedAt: args.observedAt,
+
+        statement: `Processing trace ${id} from ${component} recorded ${event} at ${occurredAt}.${detailSuffix}`,
+      }),
+    ];
+  });
 }
 
 export function projectInvestigationObservationFacts(
