@@ -84,4 +84,50 @@ describe("notification action execution repository", () => {
 
     expect(repository.getNotifications("ORD-1001")).toHaveLength(1);
   });
+
+  it("does not retry when a later notification succeeded after an earlier failure", async () => {
+    const fixture = createOrder1001ActionFixture();
+
+    fixture.notifications = [
+      {
+        id: "NOT-FAILED-1",
+        status: "FAILED",
+      },
+      {
+        id: "NOT-SENT-1",
+        status: "SENT",
+      },
+    ];
+
+    const repository = new InMemoryActionExecutionRepository([fixture]);
+
+    const result = await repository.retryNotification("ORD-1001");
+
+    expect(result.status).toBe("PRECONDITION_FAILED");
+
+    expect(repository.getNotifications("ORD-1001")).toHaveLength(2);
+  });
+
+  it("treats the latest notification as the current notification state", async () => {
+    const fixture = createOrder1001ActionFixture();
+
+    fixture.notifications = [
+      {
+        id: "NOT-FAILED-1",
+        status: "FAILED",
+      },
+      {
+        id: "NOT-SENT-1",
+        status: "SENT",
+      },
+    ];
+
+    const repository = new InMemoryActionExecutionRepository([fixture]);
+
+    const context = await repository.getExecutionContext("ORD-1001");
+
+    expect(context).not.toBeNull();
+
+    expect(context?.notificationFailed).toBe(false);
+  });
 });

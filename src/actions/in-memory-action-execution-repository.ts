@@ -74,6 +74,9 @@ function cloneSeed(seed: MutableCommerceOrderSeed): MutableCommerceOrderSeed {
 function buildExecutionContext(
   state: MutableCommerceOrderSeed,
 ): ActionExecutionContext {
+  const latestNotification =
+    state.notifications[state.notifications.length - 1];
+
   return {
     orderStatus: state.order.status,
 
@@ -93,9 +96,7 @@ function buildExecutionContext(
       (delivery) => delivery.status === "DELIVERED",
     ),
 
-    notificationFailed: state.notifications.some(
-      (notification) => notification.status === "FAILED",
-    ),
+    notificationFailed: latestNotification?.status === "FAILED",
 
     hasBlockingFulfillmentAttempt: state.fulfillmentAttempts.some((attempt) =>
       blockingFulfillmentStatuses.has(attempt.status),
