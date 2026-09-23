@@ -184,4 +184,130 @@ describe("buildReconstructedInvestigationInput", () => {
 
     expect(context).toContain("RECENT_FULFILLMENT_OBSERVATION");
   });
+
+  it("includes provenance-aware projected observations when reconstructing context", () => {
+    const state: InvestigationRunState = {
+      id: "RUN-1",
+
+      orderId: "ORD-1001",
+
+      goal: "Determine why order ORD-1001 is stuck.",
+
+      status: "RUNNING",
+
+      workingMemory: {
+        facts: [],
+        unresolvedQuestions: [],
+      },
+
+      startedAt: "2026-09-23T16:00:00.000Z",
+
+      updatedAt: "2026-09-23T16:01:00.000Z",
+
+      toolCalls: 2,
+
+      executedToolCallSignatures: [
+        JSON.stringify({
+          name: "get_order",
+          arguments: {
+            orderId: "ORD-1001",
+          },
+        }),
+
+        JSON.stringify({
+          name: "get_payment_state",
+          arguments: {
+            orderId: "ORD-1001",
+          },
+        }),
+      ],
+
+      toolExecutions: [
+        {
+          sequence: 1,
+
+          tool: "get_order",
+
+          arguments: {
+            orderId: "ORD-1001",
+          },
+
+          result: {
+            ok: true,
+
+            data: {
+              order: {
+                id: "ORD-1001",
+                status: "PROCESSING",
+                createdAt: "2026-09-16T09:00:00.000Z",
+                updatedAt: "2026-09-16T09:05:00.000Z",
+              },
+
+              observedAt: "2026-09-23T16:00:10.000Z",
+
+              source: "commerce_repository",
+            },
+          },
+
+          executedAt: "2026-09-23T16:00:10.001Z",
+        },
+
+        {
+          sequence: 2,
+
+          tool: "get_payment_state",
+
+          arguments: {
+            orderId: "ORD-1001",
+          },
+
+          result: {
+            ok: true,
+
+            data: {
+              orderId: "ORD-1001",
+
+              payments: [
+                {
+                  id: "PAY-1001",
+                  status: "CAPTURED",
+                },
+              ],
+
+              observedAt: "2026-09-23T16:00:20.000Z",
+
+              source: "commerce_repository",
+            },
+          },
+
+          executedAt: "2026-09-23T16:00:20.001Z",
+        },
+      ],
+
+      continuation: {
+        kind: "INITIAL",
+        prompt: "Why is order ORD-1001 stuck?",
+      },
+
+      assessment: null,
+
+      failureReason: null,
+    };
+
+    const result = buildReconstructedInvestigationInput(state);
+
+    expect(result).toContain("Projected observations:");
+
+    expect(result).toContain(
+      "They are evidence from when the tool ran, not guarantees about current system state.",
+    );
+
+    expect(result).toContain(
+      "[OBSERVATION] [tool:get_order] [observedAt=2026-09-23T16:00:10.000Z] Order ORD-1001 status is PROCESSING.",
+    );
+
+    expect(result).toContain(
+      "[OBSERVATION] [tool:get_payment_state] [observedAt=2026-09-23T16:00:20.000Z] Payment PAY-1001 status is CAPTURED.",
+    );
+  });
 });
