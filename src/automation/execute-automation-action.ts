@@ -53,6 +53,36 @@ function supportsNotificationRetry(
   return typeof candidate.retryNotification === "function";
 }
 
+function actionMatchesRetryNotification(args: {
+  audit: {
+    action: {
+      kind: string;
+      orderId: string;
+      reason: string;
+    };
+
+    initiatedBy: {
+      type: string;
+      id: string;
+    };
+
+    approvalId: string | null;
+  };
+
+  automationRunId: string;
+
+  action: RetryNotificationAction;
+}) {
+  return (
+    args.audit.action.kind === args.action.kind &&
+    args.audit.action.orderId === args.action.orderId &&
+    args.audit.action.reason === args.action.reason &&
+    args.audit.initiatedBy.type === "SYSTEM" &&
+    args.audit.initiatedBy.id === args.automationRunId &&
+    args.audit.approvalId === null
+  );
+}
+
 export async function executeAutomationAction(args: {
   automationRunId: string;
   automationStore: AutomationStore;
@@ -164,9 +194,7 @@ export async function executeAutomationAction(args: {
 
           return {
             status: "VERIFYING",
-
             run,
-
             executionId: execution.executionId,
           };
 
@@ -179,11 +207,8 @@ export async function executeAutomationAction(args: {
 
           return {
             status: "ESCALATED",
-
             run,
-
             reason: execution.result.reason,
-
             executionId: execution.executionId,
           };
       }
@@ -196,13 +221,134 @@ export async function executeAutomationAction(args: {
         );
       }
 
-      const executionNow = now();
-
       const retryNotificationAction: RetryNotificationAction = {
         ...action,
-
         kind: "RETRY_NOTIFICATION",
       };
+
+      const automationRunId = run.id;
+
+      const notificationAudits = await args.auditStore.listByOrderId(
+        run.orderId,
+      );
+
+      const matchingNotificationAudits = notificationAudits.filter((audit) =>
+        actionMatchesRetryNotification({
+          audit,
+          automationRunId,
+          action: retryNotificationAction,
+        }),
+      );
+
+      const recoveredNotificationExecutions = matchingNotificationAudits.filter(
+        (audit) =>
+          audit.status === "EXECUTED" &&
+          audit.effect?.kind === "NOTIFICATION_RETRY_CREATED" &&
+          typeof audit.effect.notificationId === "string" &&
+          audit.effect.notificationId.length > 0,
+      );
+
+      const [recoveredNotificationExecution] = recoveredNotificationExecutions;
+
+      if (
+        recoveredNotificationExecutions.length === 1 &&
+        recoveredNotificationExecution
+      ) {
+        run = {
+          ...run,
+          actionExecutionId: recoveredNotificationExecution.id,
+        };
+
+        run = transitionAutomationRun(run, "VERIFYING", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "VERIFYING",
+          run,
+          executionId: recoveredNotificationExecution.id,
+        };
+      }
+
+      if (recoveredNotificationExecutions.length > 1) {
+        const reason =
+          "Multiple executed notification retry audits were found for the same automation action.";
+
+        run = {
+          ...run,
+          failureReason: reason,
+        };
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+          run,
+          reason,
+          executionId: null,
+        };
+      }
+
+      const malformedExecutedNotificationAudit =
+        matchingNotificationAudits.find(
+          (audit) =>
+            audit.status === "EXECUTED" &&
+            (audit.effect?.kind !== "NOTIFICATION_RETRY_CREATED" ||
+              typeof audit.effect.notificationId !== "string" ||
+              audit.effect.notificationId.length === 0),
+        );
+
+      if (malformedExecutedNotificationAudit) {
+        const reason =
+          "Notification retry execution audit is missing a valid notification-retry effect and cannot be safely replayed.";
+
+        run = {
+          ...run,
+          actionExecutionId: malformedExecutedNotificationAudit.id,
+          failureReason: reason,
+        };
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+          run,
+          reason,
+          executionId: malformedExecutedNotificationAudit.id,
+        };
+      }
+
+      const ambiguousNotificationExecution = matchingNotificationAudits.find(
+        (audit) => audit.status === "STARTED",
+      );
+
+      if (ambiguousNotificationExecution) {
+        const reason =
+          "Notification retry execution is ambiguous and cannot be safely replayed.";
+
+        run = {
+          ...run,
+          actionExecutionId: ambiguousNotificationExecution.id,
+          failureReason: reason,
+        };
+
+        run = transitionAutomationRun(run, "ESCALATED", now());
+
+        await args.automationStore.save(run);
+
+        return {
+          status: "ESCALATED",
+          run,
+          reason,
+          executionId: ambiguousNotificationExecution.id,
+        };
+      }
+
+      const executionNow = now();
 
       const execution = await executeRetryNotification({
         action: retryNotificationAction,
@@ -232,9 +378,7 @@ export async function executeAutomationAction(args: {
 
           return {
             status: "VERIFYING",
-
             run,
-
             executionId: execution.executionId,
           };
 
@@ -247,11 +391,8 @@ export async function executeAutomationAction(args: {
 
           return {
             status: "ESCALATED",
-
             run,
-
             reason: execution.result.reason,
-
             executionId: execution.executionId,
           };
       }
@@ -278,7 +419,6 @@ export async function executeAutomationAction(args: {
 
       const fulfillmentAction: CreateFulfillmentAttemptAction = {
         ...action,
-
         kind: "CREATE_FULFILLMENT_ATTEMPT",
       };
 
@@ -295,7 +435,6 @@ export async function executeAutomationAction(args: {
       if (recovery.status === "RECOVERED_EXECUTION") {
         run = {
           ...run,
-
           actionExecutionId: recovery.executionId,
         };
 
@@ -305,9 +444,7 @@ export async function executeAutomationAction(args: {
 
         return {
           status: "VERIFYING",
-
           run,
-
           executionId: recovery.executionId,
         };
       }
@@ -315,7 +452,6 @@ export async function executeAutomationAction(args: {
       if (recovery.status === "ESCALATE") {
         run = {
           ...run,
-
           actionExecutionId: recovery.executionId,
         };
 
@@ -325,11 +461,8 @@ export async function executeAutomationAction(args: {
 
         return {
           status: "ESCALATED",
-
           run,
-
           reason: recovery.reason,
-
           executionId: recovery.executionId,
         };
       }
@@ -366,9 +499,7 @@ export async function executeAutomationAction(args: {
 
           return {
             status: "VERIFYING",
-
             run,
-
             executionId: execution.executionId,
           };
 
@@ -385,11 +516,8 @@ export async function executeAutomationAction(args: {
 
           return {
             status: "ESCALATED",
-
             run,
-
             reason: execution.result.reason,
-
             executionId: execution.executionId,
           };
       }
@@ -410,7 +538,6 @@ export async function executeAutomationAction(args: {
   } catch (error) {
     run = {
       ...run,
-
       failureReason:
         error instanceof Error
           ? error.message

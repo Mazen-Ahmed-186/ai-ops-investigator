@@ -1040,4 +1040,205 @@ describe("executeAutomationAction", () => {
       }),
     );
   });
+
+  it("recovers an executed notification retry without replaying the notification write", async () => {
+    const automationStore = new InMemoryAutomationStore();
+
+    const remediationStore = new InMemoryRemediationStore();
+
+    const auditStore = new InMemoryActionExecutionAuditStore();
+
+    let run = createAutomationRun({
+      id: "AUTO-NOT-RECOVERY-1",
+      orderId: "ORD-NOT-1",
+    });
+
+    run = transitionAutomationRun(run, "INVESTIGATING");
+
+    run = {
+      ...run,
+      investigationRunId: "INV-NOT-RECOVERY-1",
+    };
+
+    run = transitionAutomationRun(run, "PLANNING_REMEDIATION");
+
+    run = {
+      ...run,
+      remediationRunId: "REM-NOT-RECOVERY-1",
+    };
+
+    run = transitionAutomationRun(run, "EXECUTING");
+
+    await automationStore.save(run);
+
+    await remediationStore.save({
+      id: "REM-NOT-RECOVERY-1",
+
+      orderId: "ORD-NOT-1",
+
+      automationRunId: "AUTO-NOT-RECOVERY-1",
+
+      investigationRunId: "INV-NOT-RECOVERY-1",
+
+      status: "COMPLETED",
+
+      recommendation: {
+        status: "RECOMMENDATION_READY",
+
+        summary: "Retry the failed customer notification.",
+
+        actions: [
+          {
+            disposition: "PRIMARY",
+
+            actionKind: "RETRY_NOTIFICATION",
+
+            instruction: "Retry the failed customer notification.",
+
+            supportedByRunbookIds: ["RUNBOOK-NOTIFICATION-FAILURE"],
+          },
+        ],
+      },
+
+      retrievedRunbookIds: ["RUNBOOK-NOTIFICATION-FAILURE"],
+
+      startedAt: "2026-09-24T12:00:00.000Z",
+
+      updatedAt: "2026-09-24T12:01:00.000Z",
+
+      failureReason: null,
+    });
+
+    const action = {
+      kind: "RETRY_NOTIFICATION" as const,
+
+      orderId: "ORD-NOT-1",
+
+      reason:
+        "Grounded remediation requires retrying the failed customer notification.",
+    };
+
+    await auditStore.save({
+      id: "ACT-NOT-RECOVERED-1",
+
+      action,
+
+      initiatedBy: {
+        type: "SYSTEM",
+        id: "AUTO-NOT-RECOVERY-1",
+      },
+
+      approvalId: null,
+
+      status: "EXECUTED",
+
+      startedAt: "2026-09-24T12:02:00.000Z",
+
+      completedAt: "2026-09-24T12:02:01.000Z",
+
+      reason: "Created notification retry NOT-NEW-1 with status PENDING.",
+
+      validationReasons: [],
+
+      error: null,
+
+      effect: {
+        kind: "NOTIFICATION_RETRY_CREATED",
+
+        notificationId: "NOT-NEW-1",
+
+        notificationStatus: "PENDING",
+      },
+    });
+
+    const repository = new InMemoryActionExecutionRepository([
+      {
+        order: {
+          id: "ORD-NOT-1",
+          status: "FULFILLED",
+        },
+
+        payments: [
+          {
+            status: "CAPTURED",
+          },
+        ],
+
+        fulfillmentAttempts: [
+          {
+            id: "FUL-NOT-1",
+            status: "SUCCEEDED",
+          },
+        ],
+
+        entitlements: [
+          {
+            status: "ACTIVE",
+          },
+        ],
+
+        accountDeliveries: [
+          {
+            status: "DELIVERED",
+          },
+        ],
+
+        notifications: [
+          {
+            id: "NOT-OLD-1",
+            status: "FAILED",
+          },
+
+          {
+            id: "NOT-NEW-1",
+            status: "SENT",
+          },
+        ],
+
+        refunds: [],
+
+        refundAllowedByBusinessPolicy: true,
+      },
+    ]);
+
+    const retryNotificationSpy = vi
+      .spyOn(repository, "retryNotification")
+      .mockRejectedValue(
+        new Error(
+          "Recovered execution must not create another notification retry.",
+        ),
+      );
+
+    const executeRetryNotification = vi.fn<
+      typeof executeAuditedRetryNotification
+    >(async () => {
+      throw new Error(
+        "Recovered execution must not invoke the notification executor.",
+      );
+    });
+
+    const result = await executeAutomationAction({
+      automationRunId: "AUTO-NOT-RECOVERY-1",
+
+      automationStore,
+
+      remediationStore,
+
+      repository,
+
+      auditStore,
+
+      executeRetryNotification,
+    });
+
+    expect(result.status).toBe("VERIFYING");
+
+    expect(result.run.status).toBe("VERIFYING");
+
+    expect(result.run.actionExecutionId).toBe("ACT-NOT-RECOVERED-1");
+
+    expect(executeRetryNotification).not.toHaveBeenCalled();
+
+    expect(retryNotificationSpy).not.toHaveBeenCalled();
+  });
 });
