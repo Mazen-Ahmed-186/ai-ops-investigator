@@ -28,7 +28,8 @@
     "eval:automation": "tsx evals/automation/run.ts",
     "eval:automation-routing": "tsx evals/automation/run-routing.ts",
     "eval:automation-workflow": "tsx evals/automation/run-workflow.ts",
-    "eval:investigation:resume": "tsx evals/investigation/run-resume.ts"
+    "eval:investigation:resume": "tsx evals/investigation/run-resume.ts",
+    "eval:automation-ai-workflow": "tsx evals/automation/run-ai-workflow.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
