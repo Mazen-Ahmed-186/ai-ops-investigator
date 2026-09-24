@@ -175,6 +175,20 @@ describe("notification automation verification", () => {
     expect(result.run.status).toBe("COMPLETED");
   });
 
+  it("completes when the exact audited notification retry has progressed to SENT", async () => {
+    const state = await createVerificationState({
+      notificationStatus: "SENT",
+    });
+
+    const result = await verifyAutomationAction({
+      automationRunId: "AUTO-NOT-1",
+      ...state,
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    expect(result.run.status).toBe("COMPLETED");
+  });
+
   it("escalates when the exact audited notification retry is missing", async () => {
     const state = await createVerificationState({
       includeNotification: false,
@@ -203,7 +217,7 @@ describe("notification automation verification", () => {
     expect(result.run.status).toBe("ESCALATED");
   });
 
-  it("escalates when the exact notification retry is not PENDING", async () => {
+  it("escalates when the exact audited notification retry is FAILED", async () => {
     const state = await createVerificationState({
       notificationStatus: "FAILED",
     });

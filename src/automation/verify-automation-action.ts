@@ -313,7 +313,7 @@ export async function verifyAutomationAction(args: {
         };
       }
 
-      if (notification.status !== "PENDING") {
+      if (notification.status !== "PENDING" && notification.status !== "SENT") {
         const reason = `Expected notification retry ${notification.id} to be PENDING, received ${notification.status}.`;
 
         run = transitionAutomationRun(run, "ESCALATED", now());
