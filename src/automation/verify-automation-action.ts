@@ -473,8 +473,13 @@ export async function verifyAutomationAction(args: {
         };
       }
 
-      if (attempt.status !== "PENDING") {
-        const reason = `Expected fulfillment attempt ${attempt.id} to be PENDING, received ${attempt.status}.`;
+      const isAcceptableFulfillmentState =
+        attempt.status === "PENDING" ||
+        attempt.status === "ACTIVE" ||
+        attempt.status === "SUCCEEDED";
+
+      if (!isAcceptableFulfillmentState) {
+        const reason = `Fulfillment attempt ${attempt.id} is in unacceptable verification state ${attempt.status}.`;
 
         run = transitionAutomationRun(run, "ESCALATED", now());
 

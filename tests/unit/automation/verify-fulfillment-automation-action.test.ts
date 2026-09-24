@@ -212,9 +212,7 @@ async function createVerifyingState(args: {
 describe("fulfillment automation verification", () => {
   it("completes when the exact audited fulfillment attempt exists as PENDING", async () => {
     const automationStore = new InMemoryAutomationStore();
-
     const remediationStore = new InMemoryRemediationStore();
-
     const auditStore = new InMemoryActionExecutionAuditStore();
 
     await createVerifyingState({
@@ -225,26 +223,69 @@ describe("fulfillment automation verification", () => {
 
     const result = await verifyAutomationAction({
       automationRunId: "AUTO-1",
-
       automationStore,
-
       remediationStore,
-
       auditStore,
-
       repository: createRepository(),
     });
 
     expect(result.status).toBe("COMPLETED");
+    expect(result.run.status).toBe("COMPLETED");
+  });
 
+  it("completes when the exact audited fulfillment attempt has progressed to ACTIVE", async () => {
+    const automationStore = new InMemoryAutomationStore();
+    const remediationStore = new InMemoryRemediationStore();
+    const auditStore = new InMemoryActionExecutionAuditStore();
+
+    await createVerifyingState({
+      automationStore,
+      remediationStore,
+      auditStore,
+    });
+
+    const result = await verifyAutomationAction({
+      automationRunId: "AUTO-1",
+      automationStore,
+      remediationStore,
+      auditStore,
+      repository: createRepository({
+        createdAttemptStatus: "ACTIVE",
+      }),
+    });
+
+    expect(result.status).toBe("COMPLETED");
+    expect(result.run.status).toBe("COMPLETED");
+  });
+
+  it("completes when the exact audited fulfillment attempt has progressed to SUCCEEDED", async () => {
+    const automationStore = new InMemoryAutomationStore();
+    const remediationStore = new InMemoryRemediationStore();
+    const auditStore = new InMemoryActionExecutionAuditStore();
+
+    await createVerifyingState({
+      automationStore,
+      remediationStore,
+      auditStore,
+    });
+
+    const result = await verifyAutomationAction({
+      automationRunId: "AUTO-1",
+      automationStore,
+      remediationStore,
+      auditStore,
+      repository: createRepository({
+        createdAttemptStatus: "SUCCEEDED",
+      }),
+    });
+
+    expect(result.status).toBe("COMPLETED");
     expect(result.run.status).toBe("COMPLETED");
   });
 
   it("escalates when the exact audited attempt cannot be found", async () => {
     const automationStore = new InMemoryAutomationStore();
-
     const remediationStore = new InMemoryRemediationStore();
-
     const auditStore = new InMemoryActionExecutionAuditStore();
 
     await createVerifyingState({
@@ -255,13 +296,9 @@ describe("fulfillment automation verification", () => {
 
     const result = await verifyAutomationAction({
       automationRunId: "AUTO-1",
-
       automationStore,
-
       remediationStore,
-
       auditStore,
-
       repository: createRepository({
         includeCreatedAttempt: false,
       }),
@@ -270,7 +307,6 @@ describe("fulfillment automation verification", () => {
     expect(result).toEqual(
       expect.objectContaining({
         status: "ESCALATED",
-
         reason:
           "Fulfillment attempt FUL-NEW-1 was not found during verification.",
       }),
@@ -279,75 +315,64 @@ describe("fulfillment automation verification", () => {
 
   it("escalates when the execution audit has no structured fulfillment effect", async () => {
     const automationStore = new InMemoryAutomationStore();
-
     const remediationStore = new InMemoryRemediationStore();
-
     const auditStore = new InMemoryActionExecutionAuditStore();
 
     await createVerifyingState({
       automationStore,
       remediationStore,
       auditStore,
-
       effect: null,
     });
 
     const result = await verifyAutomationAction({
       automationRunId: "AUTO-1",
-
       automationStore,
-
       remediationStore,
-
       auditStore,
-
       repository: createRepository(),
     });
 
     expect(result).toEqual(
       expect.objectContaining({
         status: "ESCALATED",
-
         reason:
           "Action execution audit ACT-FUL-1 does not contain a fulfillment-attempt creation effect.",
       }),
     );
   });
 
-  it("escalates when the exact attempt is not in the expected post-write state", async () => {
-    const automationStore = new InMemoryAutomationStore();
+  it.each([
+    "UNKNOWN",
+    "RECONCILING",
+    "CONFIRMED_FAILED",
+    "ABORTED",
+    "MANUAL_REVIEW",
+  ] as const)(
+    "escalates when the exact audited fulfillment attempt is %s",
+    async (createdAttemptStatus) => {
+      const automationStore = new InMemoryAutomationStore();
+      const remediationStore = new InMemoryRemediationStore();
+      const auditStore = new InMemoryActionExecutionAuditStore();
 
-    const remediationStore = new InMemoryRemediationStore();
+      await createVerifyingState({
+        automationStore,
+        remediationStore,
+        auditStore,
+      });
 
-    const auditStore = new InMemoryActionExecutionAuditStore();
+      const result = await verifyAutomationAction({
+        automationRunId: "AUTO-1",
+        automationStore,
+        remediationStore,
+        auditStore,
+        repository: createRepository({
+          createdAttemptStatus,
+        }),
+      });
 
-    await createVerifyingState({
-      automationStore,
-      remediationStore,
-      auditStore,
-    });
-
-    const result = await verifyAutomationAction({
-      automationRunId: "AUTO-1",
-
-      automationStore,
-
-      remediationStore,
-
-      auditStore,
-
-      repository: createRepository({
-        createdAttemptStatus: "CONFIRMED_FAILED",
-      }),
-    });
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        status: "ESCALATED",
-
-        reason:
-          "Expected fulfillment attempt FUL-NEW-1 to be PENDING, received CONFIRMED_FAILED.",
-      }),
-    );
-  });
+      expect(result.status).toBe("ESCALATED");
+      expect(result.run.status).toBe("ESCALATED");
+    },
+  );
 });
