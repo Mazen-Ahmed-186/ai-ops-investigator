@@ -11,6 +11,8 @@ import type { InvestigationStore } from "../../src/investigations/store.js";
 import type { InvestigationRunState } from "../../src/investigations/types.js";
 import { InMemoryRemediationStore } from "../../src/remediations/in-memory-remediation-store.js";
 import type { RemediationRun } from "../../src/remediations/types.js";
+import { decideApproval } from "../../src/actions/approval-lifecycle.js";
+import { resumeAutomationAfterApproval } from "../../src/automation/resume-automation-after-approval.js";
 
 class EvalInvestigationStore implements InvestigationStore {
   private readonly runs = new Map<string, InvestigationRunState>();
@@ -226,6 +228,76 @@ if (executions.length !== 0) {
   );
 }
 
+const approved = decideApproval({
+  approval: pendingApproval,
+
+  decision: "APPROVE",
+
+  decidedBy: "automation-eval-reviewer",
+});
+
+await approvalStore.save(approved);
+
+const savedApproved = await approvalStore.get(pendingApproval.id);
+
+if (!savedApproved) {
+  throw new Error(`Approval ${pendingApproval.id} disappeared after approval.`);
+}
+
+if (savedApproved.status !== "APPROVED") {
+  throw new Error(
+    `Expected APPROVED approval; received ${savedApproved.status}.`,
+  );
+}
+
+const resumed = await resumeAutomationAfterApproval({
+  automationRunId,
+
+  automationStore,
+
+  remediationStore,
+
+  approvalStore,
+});
+
+if (resumed.status !== "EXECUTION_READY") {
+  throw new Error(
+    `Expected EXECUTION_READY after approval; received ${resumed.status}.`,
+  );
+}
+
+const resumedAutomation = await automationStore.get(automationRunId);
+
+if (!resumedAutomation) {
+  throw new Error(
+    `Automation ${automationRunId} disappeared after approval resume.`,
+  );
+}
+
+if (resumedAutomation.status !== "EXECUTING") {
+  throw new Error(
+    `Expected durable EXECUTING state; received ${resumedAutomation.status}.`,
+  );
+}
+
+if (resumedAutomation.approvalId !== savedApproved.id) {
+  throw new Error("Automation lost approval correlation after resume.");
+}
+
+if (resumedAutomation.actionExecutionId !== null) {
+  throw new Error(
+    "Action execution exists before the explicit execution step.",
+  );
+}
+
+const executionsAfterApproval = await auditStore.listByOrderId(orderId);
+
+if (executionsAfterApproval.length !== 0) {
+  throw new Error(
+    `Expected zero action executions immediately after approval; found ${executionsAfterApproval.length}.`,
+  );
+}
+
 console.log({
   investigation: investigation.assessment.rootCauseCategory,
 
@@ -233,13 +305,17 @@ console.log({
 
   routing: routing.status,
 
-  approvalStatus: pendingApproval.status,
+  approvalBeforeDecision: pendingApproval.status,
 
-  approvalAction: pendingApproval.action.kind,
+  approvalAfterDecision: savedApproved.status,
 
-  actionExecutions: executions.length,
+  resume: resumed.status,
 
-  automationStatus: persistedAutomation.status,
+  automationStatus: resumedAutomation.status,
+
+  actionExecutionId: resumedAutomation.actionExecutionId,
+
+  actionExecutions: executionsAfterApproval.length,
 });
 
-console.log("\nConfirmed failure approval boundary passed");
+console.log("\nConfirmed failure approval + resume boundary passed");
