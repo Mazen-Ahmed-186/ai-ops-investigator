@@ -1435,4 +1435,198 @@ describe("executeAutomationAction", () => {
 
     expect(retryNotificationSpy).not.toHaveBeenCalled();
   });
+
+  it("escalates an executed notification retry with a missing effect without replaying the write", async () => {
+    const automationStore = new InMemoryAutomationStore();
+
+    const remediationStore = new InMemoryRemediationStore();
+
+    const auditStore = new InMemoryActionExecutionAuditStore();
+
+    let run = createAutomationRun({
+      id: "AUTO-NOT-MALFORMED-1",
+      orderId: "ORD-NOT-1",
+    });
+
+    run = transitionAutomationRun(run, "INVESTIGATING");
+
+    run = {
+      ...run,
+      investigationRunId: "INV-NOT-MALFORMED-1",
+    };
+
+    run = transitionAutomationRun(run, "PLANNING_REMEDIATION");
+
+    run = {
+      ...run,
+      remediationRunId: "REM-NOT-MALFORMED-1",
+    };
+
+    run = transitionAutomationRun(run, "EXECUTING");
+
+    await automationStore.save(run);
+
+    await remediationStore.save({
+      id: "REM-NOT-MALFORMED-1",
+
+      orderId: "ORD-NOT-1",
+
+      automationRunId: "AUTO-NOT-MALFORMED-1",
+
+      investigationRunId: "INV-NOT-MALFORMED-1",
+
+      status: "COMPLETED",
+
+      recommendation: {
+        status: "RECOMMENDATION_READY",
+
+        summary: "Retry the failed customer notification.",
+
+        actions: [
+          {
+            disposition: "PRIMARY",
+
+            actionKind: "RETRY_NOTIFICATION",
+
+            instruction: "Retry the failed customer notification.",
+
+            supportedByRunbookIds: ["RUNBOOK-NOTIFICATION-FAILURE"],
+          },
+        ],
+      },
+
+      retrievedRunbookIds: ["RUNBOOK-NOTIFICATION-FAILURE"],
+
+      startedAt: "2026-09-24T12:00:00.000Z",
+
+      updatedAt: "2026-09-24T12:01:00.000Z",
+
+      failureReason: null,
+    });
+
+    const action = {
+      kind: "RETRY_NOTIFICATION" as const,
+
+      orderId: "ORD-NOT-1",
+
+      reason:
+        "Grounded remediation requires retrying the failed customer notification.",
+    };
+
+    await auditStore.save({
+      id: "ACT-NOT-MALFORMED-1",
+
+      action,
+
+      initiatedBy: {
+        type: "SYSTEM",
+        id: "AUTO-NOT-MALFORMED-1",
+      },
+
+      approvalId: null,
+
+      status: "EXECUTED",
+
+      startedAt: "2026-09-24T12:02:00.000Z",
+
+      completedAt: "2026-09-24T12:02:01.000Z",
+
+      reason: "Notification retry execution completed.",
+
+      validationReasons: [],
+
+      error: null,
+
+      effect: null,
+    });
+
+    const repository = new InMemoryActionExecutionRepository([
+      {
+        order: {
+          id: "ORD-NOT-1",
+          status: "FULFILLED",
+        },
+
+        payments: [
+          {
+            status: "CAPTURED",
+          },
+        ],
+
+        fulfillmentAttempts: [
+          {
+            id: "FUL-NOT-1",
+            status: "SUCCEEDED",
+          },
+        ],
+
+        entitlements: [
+          {
+            status: "ACTIVE",
+          },
+        ],
+
+        accountDeliveries: [
+          {
+            status: "DELIVERED",
+          },
+        ],
+
+        notifications: [
+          {
+            id: "NOT-OLD-1",
+            status: "FAILED",
+          },
+        ],
+
+        refunds: [],
+
+        refundAllowedByBusinessPolicy: true,
+      },
+    ]);
+
+    const retryNotificationSpy = vi.spyOn(repository, "retryNotification");
+
+    const executeRetryNotification = vi.fn<
+      typeof executeAuditedRetryNotification
+    >(async () => {
+      throw new Error("Malformed executed audit must not be replayed.");
+    });
+
+    const result = await executeAutomationAction({
+      automationRunId: "AUTO-NOT-MALFORMED-1",
+
+      automationStore,
+
+      remediationStore,
+
+      repository,
+
+      auditStore,
+
+      executeRetryNotification,
+    });
+
+    expect(result.status).toBe("ESCALATED");
+
+    if (result.status !== "ESCALATED") {
+      throw new Error(`Expected ESCALATED result, received ${result.status}.`);
+    }
+
+    expect(result.executionId).toBe("ACT-NOT-MALFORMED-1");
+
+    expect(result.reason).toBe(
+      "Notification retry execution audit is missing a valid notification-retry effect and cannot be safely replayed.",
+    );
+
+    expect(result.run).toMatchObject({
+      status: "ESCALATED",
+
+      actionExecutionId: "ACT-NOT-MALFORMED-1",
+    });
+
+    expect(executeRetryNotification).not.toHaveBeenCalled();
+
+    expect(retryNotificationSpy).not.toHaveBeenCalled();
+  });
 });
