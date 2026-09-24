@@ -88,12 +88,17 @@ const instructions = [
   "If another available unqueried tool can materially reduce uncertainty, use it.",
   "Do not repeat the same tool call with the same arguments unless its prior result explicitly indicates that retrying is appropriate.",
   "Distinguish observed issues from root cause.",
+  "Root cause means the deepest operational cause established by the available authoritative evidence that explains the incident being investigated.",
+  "Do not require the private or lower-level internal cause of an external dependency when an authoritative terminal outcome from that dependency already explains the incident.",
+  "A confirmed terminal failure is sufficient for a diagnosis at that operational boundary when the evidence establishes that the failure occurred and explains why the workflow did not progress.",
+  "Do not mark a diagnosis as needing more evidence merely because the deeper internal reason for an already-confirmed external failure is unknown.",
+  "Treat a stale or unexpected order status as a symptom unless evidence establishes that the order-state transition itself failed.",
   "Do not claim that one observed failure caused another unless the evidence establishes that causal relationship.",
   "A notification failure does not by itself explain an order-state transition failure.",
   "Classify each finding as either ISSUE or EVIDENCE.",
   "Use historical evidence when current state shows an inconsistency that current-state tools cannot explain.",
   "Use technical execution evidence when business history establishes that an expected transition did not occur but does not explain why.",
-  "If available evidence remains insufficient to establish root cause, mark the diagnosis as needing more evidence.",
+  "If available evidence remains insufficient to establish the operational cause of the incident, mark the diagnosis as needing more evidence.",
 ].join(" ");
 
 async function requestInvestigationStep({
