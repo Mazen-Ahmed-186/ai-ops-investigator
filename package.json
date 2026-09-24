@@ -32,7 +32,8 @@
     "eval:automation-ai-workflow": "tsx evals/automation/run-ai-workflow.ts",
     "eval:automation-ai-workflow:repeated": "tsx evals/automation/run-ai-workflow-repeated.ts",
     "eval:investigation-confirmed-failure": "tsx evals/investigation/run-confirmed-failure.ts",
-    "eval:investigation-confirmed-failure:repeated": "tsx evals/investigation/run-confirmed-failure-repeated.ts"
+    "eval:investigation-confirmed-failure:repeated": "tsx evals/investigation/run-confirmed-failure-repeated.ts",
+    "eval:remediation-confirmed-failure": "tsx evals/remediation/run-confirmed-failure.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
