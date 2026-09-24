@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { buildReconstructedInvestigationInput } from "../../../src/investigations/build-model-context.js";
 import type { InvestigationRunState } from "../../../src/investigations/types.js";
+import { formatAgentContextFacts } from "../../../src/agent-context/format-context-facts.js";
+import { projectInvestigationObservationFacts } from "../../../src/agent-context/project-investigation-observations.js";
+import { formatToolExecutionSummary } from "../../../src/investigations/format-tool-execution-summary.js";
 
 describe("buildReconstructedInvestigationInput", () => {
   it("reconstructs model context from durable investigation evidence", () => {
@@ -96,7 +99,7 @@ describe("buildReconstructedInvestigationInput", () => {
     expect(context).not.toContain("call_123");
   });
 
-  it("keeps compact facts while limiting raw observations to the most recent two", () => {
+  it("keeps compact facts without copying raw tool result payloads", () => {
     const state: InvestigationRunState = {
       id: "RUN-COMPACTION",
       orderId: "ORD-1001",
@@ -178,11 +181,27 @@ describe("buildReconstructedInvestigationInput", () => {
 
     expect(context).toContain("Order ORD-1001 status is PROCESSING.");
 
+    expect(context).toContain(
+      '"statement": "Order ORD-1001 status is PROCESSING."',
+    );
+
+    expect(context).toContain("Tool execution ledger:");
+
+    expect(context).toContain('get_order {"orderId":"ORD-1001"} -> SUCCEEDED');
+
+    expect(context).toContain(
+      'get_payment_state {"orderId":"ORD-1001"} -> SUCCEEDED',
+    );
+
+    expect(context).toContain(
+      'get_fulfillment_attempts {"orderId":"ORD-1001"} -> SUCCEEDED',
+    );
+
     expect(context).not.toContain("OLD_RAW_ORDER_OBSERVATION");
 
-    expect(context).toContain("RECENT_PAYMENT_OBSERVATION");
+    expect(context).not.toContain("RECENT_PAYMENT_OBSERVATION");
 
-    expect(context).toContain("RECENT_FULFILLMENT_OBSERVATION");
+    expect(context).not.toContain("RECENT_FULFILLMENT_OBSERVATION");
   });
 
   it("includes provenance-aware projected observations when reconstructing context", () => {
@@ -309,5 +328,29 @@ describe("buildReconstructedInvestigationInput", () => {
     expect(result).toContain(
       "[OBSERVATION] [tool:get_payment_state] [observedAt=2026-09-23T16:00:20.000Z] Payment PAY-1001 status is CAPTURED.",
     );
+
+    expect(result).toContain("Tool execution ledger:");
+
+    expect(result).toContain('get_order {"orderId":"ORD-1001"} -> SUCCEEDED');
+
+    expect(result).toContain(
+      'get_payment_state {"orderId":"ORD-1001"} -> SUCCEEDED',
+    );
+
+    expect(result).not.toContain("Persisted tool evidence:");
+
+    expect(result).not.toContain('"result": {');
+
+    expect(result).not.toContain('"previousResponseId"');
+
+    const rawToolEvidence = JSON.stringify(state.toolExecutions, null, 2);
+
+    const compactEvidence = [
+      formatAgentContextFacts(projectInvestigationObservationFacts(state)),
+
+      formatToolExecutionSummary(state),
+    ].join("\n");
+
+    expect(compactEvidence.length).toBeLessThan(rawToolEvidence.length);
   });
 });

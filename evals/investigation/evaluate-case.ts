@@ -1,6 +1,8 @@
 import { runAgentInvestigation } from "../../src/ai/run-agent-investigation.js";
 import type { InvestigationEvalCase } from "./cases.js";
 
+type InvestigationRunResult = Awaited<ReturnType<typeof runAgentInvestigation>>;
+
 export type InvestigationCheckResult = {
   name: string;
   passed: boolean;
@@ -16,11 +18,10 @@ export type InvestigationCaseResult = {
   rootCauseCategory: string | null;
 };
 
-export async function evaluateInvestigationCase(
+export function evaluateInvestigationResult(
   evalCase: InvestigationEvalCase,
-): Promise<InvestigationCaseResult> {
-  const result = await runAgentInvestigation(evalCase.orderId);
-
+  result: InvestigationRunResult,
+): InvestigationCaseResult {
   const checks: InvestigationCheckResult[] = [
     {
       name: "completed",
@@ -98,4 +99,12 @@ export async function evaluateInvestigationCase(
     toolCalls: result.toolCalls,
     rootCauseCategory: assessment.rootCauseCategory,
   };
+}
+
+export async function evaluateInvestigationCase(
+  evalCase: InvestigationEvalCase,
+): Promise<InvestigationCaseResult> {
+  const result = await runAgentInvestigation(evalCase.orderId);
+
+  return evaluateInvestigationResult(evalCase, result);
 }
