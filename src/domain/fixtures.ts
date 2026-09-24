@@ -16,6 +16,12 @@ export const orders: Order[] = [
     createdAt: "2026-09-16T09:00:00.000Z",
     updatedAt: "2026-09-16T09:05:00.000Z",
   },
+  {
+    id: "ORD-2001",
+    status: "PROCESSING",
+    createdAt: "2026-09-17T10:00:00.000Z",
+    updatedAt: "2026-09-17T10:03:00.000Z",
+  },
 ];
 
 export const payments: Payment[] = [
@@ -27,6 +33,14 @@ export const payments: Payment[] = [
     currency: "USD",
     updatedAt: "2026-09-16T09:01:00.000Z",
   },
+  {
+    id: "PAY-2001",
+    orderId: "ORD-2001",
+    status: "CAPTURED",
+    amount: 75,
+    currency: "USD",
+    updatedAt: "2026-09-17T10:01:00.000Z",
+  },
 ];
 
 export const fulfillmentAttempts: FulfillmentAttempt[] = [
@@ -36,6 +50,13 @@ export const fulfillmentAttempts: FulfillmentAttempt[] = [
     status: "SUCCEEDED",
     source: "EXTERNAL_PROVIDER",
     updatedAt: "2026-09-16T09:03:00.000Z",
+  },
+  {
+    id: "FUL-2001",
+    orderId: "ORD-2001",
+    status: "CONFIRMED_FAILED",
+    source: "EXTERNAL_PROVIDER",
+    updatedAt: "2026-09-17T10:03:00.000Z",
   },
 ];
 
@@ -105,6 +126,30 @@ export const orderEvents: OrderEvent[] = [
     type: "NOTIFICATION_FAILED",
     occurredAt: "2026-09-16T09:05:00.000Z",
   },
+  {
+    id: "EVT-2001",
+    orderId: "ORD-2001",
+    type: "ORDER_CREATED",
+    occurredAt: "2026-09-17T10:00:00.000Z",
+  },
+  {
+    id: "EVT-2002",
+    orderId: "ORD-2001",
+    type: "PAYMENT_CAPTURED",
+    occurredAt: "2026-09-17T10:01:00.000Z",
+  },
+  {
+    id: "EVT-2003",
+    orderId: "ORD-2001",
+    type: "FULFILLMENT_STARTED",
+    occurredAt: "2026-09-17T10:02:00.000Z",
+  },
+  {
+    id: "EVT-2004",
+    orderId: "ORD-2001",
+    type: "FULFILLMENT_CONFIRMED_FAILED",
+    occurredAt: "2026-09-17T10:03:00.000Z",
+  },
 ];
 
 export const orderProcessingTraces: OrderProcessingTraceEntry[] = [
@@ -141,5 +186,23 @@ export const orderProcessingTraces: OrderProcessingTraceEntry[] = [
     occurredAt: "2026-09-16T09:04:02.100Z",
     detail:
       "Order completion handler terminated without persisting the FULFILLED transition.",
+  },
+  {
+    id: "TRACE-2001",
+    orderId: "ORD-2001",
+    component: "fulfillment-provider-client",
+    event: "PROVIDER_REQUEST_COMPLETED",
+    occurredAt: "2026-09-17T10:02:58.000Z",
+    detail:
+      "The external fulfillment provider returned a completed response for the fulfillment request.",
+  },
+  {
+    id: "TRACE-2002",
+    orderId: "ORD-2001",
+    component: "fulfillment-provider-client",
+    event: "PROVIDER_CONFIRMED_FAILURE",
+    occurredAt: "2026-09-17T10:03:00.000Z",
+    detail:
+      "The external fulfillment provider explicitly confirmed that fulfillment failed and no entitlement was issued.",
   },
 ];
