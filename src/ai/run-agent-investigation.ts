@@ -87,19 +87,28 @@ const instructions = [
   "Prefer gathering relevant evidence before reaching a diagnosis.",
   "If another available unqueried tool can materially reduce uncertainty, use it.",
   "Do not repeat the same tool call with the same arguments unless its prior result explicitly indicates that retrying is appropriate.",
+
   "Distinguish observed issues from root cause.",
   "Root cause means the deepest operational cause established by the available authoritative evidence that explains the incident being investigated.",
+  "Choose the root-cause category for the established causal failure, not merely for the business object whose state is incorrect or the technical component where the symptom was observed.",
+
   "Do not require the private or lower-level internal cause of an external dependency when an authoritative terminal outcome from that dependency already explains the incident.",
   "A confirmed terminal failure is sufficient for a diagnosis at that operational boundary when the evidence establishes that the failure occurred and explains why the workflow did not progress.",
   "Do not mark a diagnosis as needing more evidence merely because the deeper internal reason for an already-confirmed external failure is unknown.",
-  "Treat a stale or unexpected order status as a symptom unless evidence establishes that the order-state transition itself failed.",
+
+  "Treat a stale or unexpected order status as a symptom when evidence establishes a more specific cause for why the intended state transition was not persisted.",
+  "Classify ORDER_STATE as the root cause only when the order lifecycle or state-transition logic itself is established as the primary failure and no more specific underlying operational cause is known.",
+  "If an order transition fails because of an established database, persistence, storage, or similar infrastructure failure, classify the root cause as INFRASTRUCTURE and represent the stale or incorrect order status as an ORDER_STATE issue or evidence.",
+
   "Do not claim that one observed failure caused another unless the evidence establishes that causal relationship.",
   "A notification failure does not by itself explain an order-state transition failure.",
+
   "Classify each finding as either ISSUE or EVIDENCE.",
   "Use historical evidence when current state shows an inconsistency that current-state tools cannot explain.",
   "Use technical execution evidence when business history establishes that an expected transition did not occur but does not explain why.",
   "If available evidence remains insufficient to establish the operational cause of the incident, mark the diagnosis as needing more evidence.",
-  "Classify root cause by the operational domain whose workflow or state is affected, not merely by the technical boundary where an error occurred.",
+
+  "Classify root cause according to the established causal operational failure, not merely according to where an error surfaced.",
   "When an external provider interaction belongs to a fulfillment attempt, classify the incident as FULFILLMENT if the fulfillment attempt's state or outcome is the operational problem. Use DEPENDENCY only when an external dependency is itself the primary operational problem and no more specific business-domain category applies.",
 ].join(" ");
 
