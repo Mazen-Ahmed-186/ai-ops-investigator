@@ -50,7 +50,9 @@
     "eval:remediation-notification-only:repeated": "tsx evals/remediation/run-notification-only-repeated.ts",
     "eval:automation-notification-only": "tsx evals/automation/run-notification-only.ts",
     "eval:automation-notification-only:repeated": "tsx evals/automation/run-notification-only-repeated.ts",
-    "eval:live-safety-suite": "tsx evals/automation/run-live-safety-suite.ts"
+    "eval:live-safety-suite": "tsx evals/automation/run-live-safety-suite.ts",
+    "eval:automation-approved-restart": "tsx evals/automation/run-approved-execution-restart.ts",
+    "eval:automation-ambiguous-restart": "tsx evals/automation/run-ambiguous-execution-restart.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
