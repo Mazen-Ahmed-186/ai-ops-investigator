@@ -28,6 +28,12 @@ export const orders: Order[] = [
     createdAt: "2026-09-18T11:00:00.000Z",
     updatedAt: "2026-09-18T11:03:00.000Z",
   },
+  {
+    id: "ORD-4001",
+    status: "FULFILLED",
+    createdAt: "2026-09-19T14:00:00.000Z",
+    updatedAt: "2026-09-19T14:04:00.000Z",
+  },
 ];
 
 export const payments: Payment[] = [
@@ -55,6 +61,14 @@ export const payments: Payment[] = [
     currency: "USD",
     updatedAt: "2026-09-18T11:01:00.000Z",
   },
+  {
+    id: "PAY-4001",
+    orderId: "ORD-4001",
+    status: "CAPTURED",
+    amount: 75,
+    currency: "USD",
+    updatedAt: "2026-09-19T14:01:00.000Z",
+  },
 ];
 
 export const fulfillmentAttempts: FulfillmentAttempt[] = [
@@ -79,6 +93,13 @@ export const fulfillmentAttempts: FulfillmentAttempt[] = [
     source: "EXTERNAL_PROVIDER",
     updatedAt: "2026-09-18T11:03:00.000Z",
   },
+  {
+    id: "FUL-4001",
+    orderId: "ORD-4001",
+    status: "SUCCEEDED",
+    source: "EXTERNAL_PROVIDER",
+    updatedAt: "2026-09-19T14:03:00.000Z",
+  },
 ];
 
 export const entitlements: Entitlement[] = [
@@ -89,6 +110,13 @@ export const entitlements: Entitlement[] = [
     status: "ACTIVE",
     createdAt: "2026-09-16T09:03:00.000Z",
   },
+  {
+    id: "ENT-4001",
+    orderId: "ORD-4001",
+    fulfillmentAttemptId: "FUL-4001",
+    status: "ACTIVE",
+    createdAt: "2026-09-19T14:03:30.000Z",
+  },
 ];
 
 export const accountDeliveries: AccountDelivery[] = [
@@ -97,6 +125,12 @@ export const accountDeliveries: AccountDelivery[] = [
     entitlementId: "ENT-1001",
     status: "DELIVERED",
     updatedAt: "2026-09-16T09:04:00.000Z",
+  },
+  {
+    id: "DEL-4001",
+    entitlementId: "ENT-4001",
+    status: "DELIVERED",
+    updatedAt: "2026-09-19T14:04:00.000Z",
   },
 ];
 
@@ -107,6 +141,13 @@ export const notifications: Notification[] = [
     type: "EMAIL",
     status: "FAILED",
     updatedAt: "2026-09-16T09:05:00.000Z",
+  },
+  {
+    id: "NOT-4001",
+    orderId: "ORD-4001",
+    type: "EMAIL",
+    status: "FAILED",
+    updatedAt: "2026-09-19T14:05:00.000Z",
   },
 ];
 
@@ -194,6 +235,48 @@ export const orderEvents: OrderEvent[] = [
     orderId: "ORD-3001",
     type: "FULFILLMENT_OUTCOME_UNKNOWN",
     occurredAt: "2026-09-18T11:03:00.000Z",
+  },
+  {
+    id: "EVT-4001",
+    orderId: "ORD-4001",
+    type: "ORDER_CREATED",
+    occurredAt: "2026-09-19T14:00:00.000Z",
+  },
+  {
+    id: "EVT-4002",
+    orderId: "ORD-4001",
+    type: "PAYMENT_CAPTURED",
+    occurredAt: "2026-09-19T14:01:00.000Z",
+  },
+  {
+    id: "EVT-4003",
+    orderId: "ORD-4001",
+    type: "FULFILLMENT_STARTED",
+    occurredAt: "2026-09-19T14:02:00.000Z",
+  },
+  {
+    id: "EVT-4004",
+    orderId: "ORD-4001",
+    type: "FULFILLMENT_SUCCEEDED",
+    occurredAt: "2026-09-19T14:03:00.000Z",
+  },
+  {
+    id: "EVT-4005",
+    orderId: "ORD-4001",
+    type: "ENTITLEMENT_DELIVERED",
+    occurredAt: "2026-09-19T14:04:00.000Z",
+  },
+  {
+    id: "EVT-4006",
+    orderId: "ORD-4001",
+    type: "ORDER_FULFILLED",
+    occurredAt: "2026-09-19T14:04:01.000Z",
+  },
+  {
+    id: "EVT-4007",
+    orderId: "ORD-4001",
+    type: "NOTIFICATION_FAILED",
+    occurredAt: "2026-09-19T14:05:00.000Z",
   },
 ];
 
