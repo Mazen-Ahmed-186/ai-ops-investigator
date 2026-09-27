@@ -41,7 +41,9 @@
     "eval:investigation-unknown-fulfillment": "tsx evals/investigation/run-unknown-fulfillment.ts",
     "eval:investigation-unknown-fulfillment:repeated": "tsx evals/investigation/run-unknown-fulfillment-repeated.ts",
     "eval:remediation-unknown-fulfillment": "tsx evals/remediation/run-unknown-fulfillment.ts",
-    "eval:remediation-unknown-fulfillment:repeated": "tsx evals/remediation/run-unknown-fulfillment-repeated.ts"
+    "eval:remediation-unknown-fulfillment:repeated": "tsx evals/remediation/run-unknown-fulfillment-repeated.ts",
+    "eval:automation-unknown-fulfillment-escalation": "tsx evals/automation/run-unknown-fulfillment-escalation.ts",
+    "eval:automation-unknown-fulfillment-escalation:repeated": "tsx evals/automation/run-unknown-fulfillment-escalation-repeated.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
