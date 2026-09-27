@@ -99,6 +99,8 @@ const instructions = [
   "Use historical evidence when current state shows an inconsistency that current-state tools cannot explain.",
   "Use technical execution evidence when business history establishes that an expected transition did not occur but does not explain why.",
   "If available evidence remains insufficient to establish the operational cause of the incident, mark the diagnosis as needing more evidence.",
+  "Classify root cause by the operational domain whose workflow or state is affected, not merely by the technical boundary where an error occurred.",
+  "When an external provider interaction belongs to a fulfillment attempt, classify the incident as FULFILLMENT if the fulfillment attempt's state or outcome is the operational problem. Use DEPENDENCY only when an external dependency is itself the primary operational problem and no more specific business-domain category applies.",
 ].join(" ");
 
 async function requestInvestigationStep({

@@ -37,7 +37,11 @@
     "eval:remediation-confirmed-failure:repeated": "tsx evals/remediation/run-confirmed-failure-repeated.ts",
     "eval:automation-confirmed-failure-approval-boundary": "tsx evals/automation/run-confirmed-failure-approval-boundary.ts",
     "eval:automation-confirmed-failure-approved-execution": "tsx evals/automation/run-confirmed-failure-approved-execution.ts",
-    "eval:automation-confirmed-failure-approved-execution:repeated": "tsx evals/automation/run-confirmed-failure-approved-execution-repeated.ts"
+    "eval:automation-confirmed-failure-approved-execution:repeated": "tsx evals/automation/run-confirmed-failure-approved-execution-repeated.ts",
+    "eval:investigation-unknown-fulfillment": "tsx evals/investigation/run-unknown-fulfillment.ts",
+    "eval:investigation-unknown-fulfillment:repeated": "tsx evals/investigation/run-unknown-fulfillment-repeated.ts",
+    "eval:remediation-unknown-fulfillment": "tsx evals/remediation/run-unknown-fulfillment.ts",
+    "eval:remediation-unknown-fulfillment:repeated": "tsx evals/remediation/run-unknown-fulfillment-repeated.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "^2.0.0",

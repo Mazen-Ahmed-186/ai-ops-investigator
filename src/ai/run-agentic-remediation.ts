@@ -106,10 +106,18 @@ export async function runAgenticRemediation(
     "Classify each remediation action as PRIMARY, FOLLOW_UP, or CONSTRAINT.",
     "Use PRIMARY only for the single next executable action that directly addresses the diagnosed incident.",
     "Use FOLLOW_UP for executable work that is valid but secondary to resolving the diagnosed incident.",
-    "Use CONSTRAINT for prohibitions, warnings, or instructions describing what must not be done.",
+    "Use CONSTRAINT for non-executable requirements, prohibitions, warnings, or instructions describing what must or must not happen before an executable action is safe.",
     "PRIMARY and FOLLOW_UP actions must use one of the provided action kinds.",
     "CONSTRAINT actions must use a null actionKind.",
     "Do not invent an executable action kind when the retrieved runbooks only support investigation, reconciliation, or escalation outside the available action set.",
+    "Treat action kinds as exact executable capabilities, not approximate semantic labels.",
+    "RECONCILE_ORDER_STATE means reconciling a stale order status after fulfillment and required delivery have already succeeded. It does not mean reconciling an external provider or fulfillment attempt.",
+    "If a runbook requires provider-state or external-outcome reconciliation and no exact executable action kind exists for that capability, set actionKind to null and express the required step as non-executable guidance or a constraint.",
+    "When a fulfillment attempt is UNKNOWN or RECONCILING, do not assign CREATE_FULFILLMENT_ATTEMPT, RECONCILE_ORDER_STATE, or another executable action as a substitute for provider reconciliation.",
+    "Do not map a required operation onto a different executable action merely because their descriptions use similar words.",
+    "Use RECONCILE_ORDER_STATE only when the incident assessment establishes that fulfillment succeeded, required entitlement/account delivery succeeded, and the order status itself is stale.",
+    "Use CREATE_FULFILLMENT_ATTEMPT only when the previous fulfillment outcome is definitively terminal and retry is supported by the retrieved runbook.",
+    "Use RETRY_NOTIFICATION only for notification recovery and never as a fulfillment or payment recovery mechanism.",
   ].join(" ");
 
   while (true) {

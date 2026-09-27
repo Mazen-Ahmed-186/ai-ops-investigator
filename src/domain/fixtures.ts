@@ -22,6 +22,12 @@ export const orders: Order[] = [
     createdAt: "2026-09-17T10:00:00.000Z",
     updatedAt: "2026-09-17T10:03:00.000Z",
   },
+  {
+    id: "ORD-3001",
+    status: "PROCESSING",
+    createdAt: "2026-09-18T11:00:00.000Z",
+    updatedAt: "2026-09-18T11:03:00.000Z",
+  },
 ];
 
 export const payments: Payment[] = [
@@ -41,6 +47,14 @@ export const payments: Payment[] = [
     currency: "USD",
     updatedAt: "2026-09-17T10:01:00.000Z",
   },
+  {
+    id: "PAY-3001",
+    orderId: "ORD-3001",
+    status: "CAPTURED",
+    amount: 60,
+    currency: "USD",
+    updatedAt: "2026-09-18T11:01:00.000Z",
+  },
 ];
 
 export const fulfillmentAttempts: FulfillmentAttempt[] = [
@@ -57,6 +71,13 @@ export const fulfillmentAttempts: FulfillmentAttempt[] = [
     status: "CONFIRMED_FAILED",
     source: "EXTERNAL_PROVIDER",
     updatedAt: "2026-09-17T10:03:00.000Z",
+  },
+  {
+    id: "FUL-3001",
+    orderId: "ORD-3001",
+    status: "UNKNOWN",
+    source: "EXTERNAL_PROVIDER",
+    updatedAt: "2026-09-18T11:03:00.000Z",
   },
 ];
 
@@ -150,6 +171,30 @@ export const orderEvents: OrderEvent[] = [
     type: "FULFILLMENT_CONFIRMED_FAILED",
     occurredAt: "2026-09-17T10:03:00.000Z",
   },
+  {
+    id: "EVT-3001",
+    orderId: "ORD-3001",
+    type: "ORDER_CREATED",
+    occurredAt: "2026-09-18T11:00:00.000Z",
+  },
+  {
+    id: "EVT-3002",
+    orderId: "ORD-3001",
+    type: "PAYMENT_CAPTURED",
+    occurredAt: "2026-09-18T11:01:00.000Z",
+  },
+  {
+    id: "EVT-3003",
+    orderId: "ORD-3001",
+    type: "FULFILLMENT_STARTED",
+    occurredAt: "2026-09-18T11:02:00.000Z",
+  },
+  {
+    id: "EVT-3004",
+    orderId: "ORD-3001",
+    type: "FULFILLMENT_OUTCOME_UNKNOWN",
+    occurredAt: "2026-09-18T11:03:00.000Z",
+  },
 ];
 
 export const orderProcessingTraces: OrderProcessingTraceEntry[] = [
@@ -204,5 +249,23 @@ export const orderProcessingTraces: OrderProcessingTraceEntry[] = [
     occurredAt: "2026-09-17T10:03:00.000Z",
     detail:
       "The external fulfillment provider explicitly confirmed that fulfillment failed and no entitlement was issued.",
+  },
+  {
+    id: "TRACE-3001",
+    orderId: "ORD-3001",
+    component: "fulfillment-provider-client",
+    event: "PROVIDER_REQUEST_TIMED_OUT",
+    occurredAt: "2026-09-18T11:02:59.000Z",
+    detail:
+      "The external fulfillment request had already been sent when the provider call timed out before a terminal response was received.",
+  },
+  {
+    id: "TRACE-3002",
+    orderId: "ORD-3001",
+    component: "fulfillment-provider-client",
+    event: "PROVIDER_OUTCOME_UNCONFIRMED",
+    occurredAt: "2026-09-18T11:03:00.000Z",
+    detail:
+      "The provider did not confirm either success or failure, so the system could not determine whether the external fulfillment side effect occurred.",
   },
 ];
